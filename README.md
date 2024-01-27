@@ -23,7 +23,7 @@ This project is the work of **Nikita Tkachenko**, a student at **Higher School o
 ### Requirements
 - Python (>=3.6)
 - Jupyter Notebook
-- Each projects' requirements are listed in correspodning `requirenemets.txt` files.
+- Each projects' requirements are listed in corresponding `requirenemets.txt` files.
 
 ### Steps
 1. Clone the repository:
