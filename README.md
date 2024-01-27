@@ -40,7 +40,7 @@ This project is the work of **Nikita Tkachenko**, a student at **Higher School o
 
 3. Install dependencies:
     ```bash
-    pip install -r <chosen_project_ditectory>/requirements.txt
+    pip install -r <choosen_project_ditectory>/requirements.txt
     ```
 
 4. Launch Jupyter Notebook:
