@@ -50,4 +50,4 @@ This project is the work of **Nikita Tkachenko**, a student at **Higher School o
     
 ## License
 
-This project is licensed under the [MIT License](LICENSE.md).
+This project is licensed under the [MIT License](LICENSE).
