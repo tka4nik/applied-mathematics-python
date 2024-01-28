@@ -11,3 +11,6 @@ You can install needed dependencies using provided `requirements.txt` file (`pip
 ![Julia Fractal 1](./media/julia_7.png)
 
 ![Julia Fractal 2](./media/julia_8.png)
+
+![Julia Fractal 3](./media/julia_1.png)
+
