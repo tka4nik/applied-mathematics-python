@@ -9,6 +9,9 @@ We are given a metal plate of some given diffusion coefficient, a structure (cut
 ## Examples
 
 ![Initial condition](media/initial.png)
+
 *Yellow is the metal plate, dark blue is the cutout of lower diffusion coefficient.*
 
 ![Heat map](media/heat_map.png)
+
+*Colored dots are probes that measure temperature over heating time in those points*
