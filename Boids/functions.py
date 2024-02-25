@@ -32,12 +32,13 @@ def directions(boids: np.ndarray, dt=float) -> np.ndarray:
 
 
 def distance(boids, i):
-    difference = boids[i, 0:2] - boids[:, 0:2]
-
-    distances = np.ndarray(difference.shape[0])
-    for j in range(difference.shape[0]):
-        distances[j] = np.sqrt(np.sum(difference[j] ** 2))
-    return np.sqrt(distances)
+    return np.linalg.norm(boids[i, 0:2] - boids[:, 0:2], axis=1)
+    # difference = boids[i, 0:2] - boids[:, 0:2]
+    #
+    # distances = np.ndarray(difference.shape[0])
+    # for j in range(difference.shape[0]):
+    #     distances[j] = np.sqrt(np.sum(difference[j] ** 2))
+    # return np.sqrt(distances)
 
 
 def clip_array(array, range):
@@ -135,3 +136,4 @@ def propagate(boids, delta_time, v_range):
     boids[:, 2:4] += boids[:, 4:6] * delta_time
     clip_array(boids[:, 2:4], v_range)
     boids[:, 0:2] += boids[:, 2:4] * delta_time
+    # print(boids[:, 4:6], '\n')
