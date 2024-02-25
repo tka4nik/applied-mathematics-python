@@ -65,6 +65,47 @@ def clip_vector(vector, range):
         vector[mask_min] = (vector[mask_min] / np.linalg.norm(vector[mask_min])) * min_magnitude
 
 
+def compute_walls_interations(boids, i, aspect_ratio):
+    mask_walls = np.empty(4)
+    mask_walls[0] = boids[i, 1] > 1
+    mask_walls[1] = boids[i, 0] > aspect_ratio
+    mask_walls[3] = boids[i, 0] < 0
+    mask_walls[2] = boids[i, 1] < 0
+
+    if mask_walls[0]:
+        boids[i, 1] = 0
+    if mask_walls[1]:
+        boids[i, 0] = 0
+    if mask_walls[2]:
+        boids[i, 1] = 1
+    if mask_walls[3]:
+        boids[i, 0] = aspect_ratio
+
+
+def compute_walls_interations_bounce(boids, i, aspect_ratio):
+    mask_walls = np.empty(4)
+    mask_walls[0] = boids[i, 1] > 1
+    mask_walls[1] = boids[i, 0] > aspect_ratio
+    mask_walls[2] = boids[i, 1] < 0
+    mask_walls[3] = boids[i, 0] < 0
+
+    if mask_walls[0]:
+        boids[i, 3] = -boids[i, 3]
+        boids[i][1] = 1 - 0.001
+
+    if mask_walls[1]:
+        boids[i, 2] = -boids[i, 2]
+        boids[i, 0] = aspect_ratio - 0.001
+
+    if mask_walls[2]:
+        boids[i, 3] = -boids[i, 3]
+        boids[i, 1] = 0.001
+
+    if mask_walls[3]:
+        boids[i, 2] = -boids[i, 2]
+        boids[i, 0] = 0.001
+
+
 def separation(boids, i, distance_mask):
     distance_mask[i] = False
     directions = boids[i, :2] - boids[distance_mask][:, :2]
@@ -87,24 +128,7 @@ def cohesion(boids, i, distance_mask):
     return acceleration - boids[i, 2:4]
 
 
-def compute_walls_interations(boids, i, aspect_ratio):
-    mask_walls = np.empty(4)
-    mask_walls[0] = boids[i, 1] > 1
-    mask_walls[1] = boids[i, 0] > aspect_ratio
-    mask_walls[2] = boids[i, 1] < 0
-    mask_walls[3] = boids[i, 0] < 0
-
-    if mask_walls[0]:
-        boids[i, 1] = 0
-    if mask_walls[1]:
-        boids[i, 0] = 0
-    if mask_walls[2]:
-        boids[i, 1] = 1
-    if mask_walls[3]:
-        boids[i, 0] = aspect_ratio
-
-
-def flocking(boids, perseption, coeffitients, aspect_ratio, v_range, a_range):
+def flocking(boids, perseption, coeffitients, aspect_ratio, v_range, a_range, wall_bounce):
     a_separation = np.zeros(2)
     a_cohesion = np.zeros(2)
     a_alignment = np.zeros(2)
@@ -113,10 +137,14 @@ def flocking(boids, perseption, coeffitients, aspect_ratio, v_range, a_range):
         perception_mask = d < perseption
         separation_mask = d < perseption / 2
         separation_mask[i] = False
-        cohesion_mask = np.logical_xor(perception_mask, separation_mask)
+        cohesion_mask = np.logical_xor(perception_mask, separation_mask) # In the ring between separation and perseption ranges
 
-        compute_walls_interations(boids, i, aspect_ratio)
+        if wall_bounce:
+            compute_walls_interations_bounce(boids, i, aspect_ratio)
+        else:
+            compute_walls_interations(boids, i, aspect_ratio)
 
+        # Main interactions
         if np.any(perception_mask):
             if np.any(separation_mask):
                 a_separation = separation(boids, i, separation_mask)
@@ -127,8 +155,8 @@ def flocking(boids, perseption, coeffitients, aspect_ratio, v_range, a_range):
             clip_vector(a_cohesion, a_range)
 
         acceleration = coeffitients["separation"] * a_separation \
-                       + coeffitients["cohesion"] * a_cohesion \
-                       + coeffitients["alignment"] * a_alignment
+                     + coeffitients["cohesion"] * a_cohesion \
+                     + coeffitients["alignment"] * a_alignment
         boids[i, 4:6] = acceleration
 
 
@@ -136,4 +164,3 @@ def propagate(boids, delta_time, v_range):
     boids[:, 2:4] += boids[:, 4:6] * delta_time
     clip_array(boids[:, 2:4], v_range)
     boids[:, 0:2] += boids[:, 2:4] * delta_time
-    # print(boids[:, 4:6], '\n')

@@ -5,13 +5,14 @@ from vispy import app, scene
 from vispy.geometry import Rect
 
 from PyQt6.QtCore import Qt, QTimer
-from PyQt6.QtWidgets import QMainWindow, QSlider, QVBoxLayout, QWidget, QLabel
+from PyQt6.QtWidgets import QMainWindow, QSlider, QVBoxLayout, QWidget, QLabel, QCheckBox
 
 
 class BoidsSimulation(QMainWindow):
     def __init__(self):
         super().__init__()
 
+        self.wall_bounce_checkbox = None
         self.alignment_label = None
         self.separation_label = None
         self.cohesion_slider = None
@@ -24,7 +25,7 @@ class BoidsSimulation(QMainWindow):
         layout = QVBoxLayout(self.central_widget)
 
         # ========================================================
-        width, height = 700, 500
+        width, height = 800, 700
         N = 700
         self.delta_time = 0.1
         self.aspect_ratio = width / height
@@ -37,6 +38,7 @@ class BoidsSimulation(QMainWindow):
 
         self.velocity_range = (0.2, 0.5)
         self.acceleration_range = (0, 3)
+        self.wall_bounce = False
 
         # (x,y), (vx, vy), (ax, ay)
         self.boids = np.zeros((N, 6), dtype=np.float64)
@@ -72,6 +74,10 @@ class BoidsSimulation(QMainWindow):
         self.separation_slider.setGeometry(50, 40, int(width * 0.7), 30)
         self.alignment_slider.setGeometry(50, 80, int(width * 0.7), 30)
 
+        self.wall_bounce_checkbox = QCheckBox("Wall bounce", self)
+        self.wall_bounce_checkbox.stateChanged.connect(self.wall_bounce_change)
+        self.wall_bounce_checkbox.setChecked(False)
+
         self.cohesion_slider.setRange(1, 50)
         self.cohesion_slider.setValue(int(self.coeffitients["cohesion"] * 10))
         self.cohesion_slider.valueChanged.connect(self.cohesion_change)
@@ -85,6 +91,7 @@ class BoidsSimulation(QMainWindow):
         self.alignment_slider.valueChanged.connect(self.alignment_change)
 
         layout.addWidget(self.canvas.native)
+        layout.addWidget(self.wall_bounce_checkbox)
         layout.addWidget(self.cohesion_label)
         layout.addWidget(self.cohesion_slider)
         layout.addWidget(self.separation_label)
@@ -107,11 +114,18 @@ class BoidsSimulation(QMainWindow):
         self.alignment_label.setText(f"Alignment: {value / 10}")
         print(f"Alignment changed to: {value / 10}")
 
+    def wall_bounce_change(self, state):
+        if state == 2:
+            self.wall_bounce = True
+        else:
+            self.wall_bounce = False
+        print(f"Wall bounce changed to: {self.wall_bounce}")
+
     def update(self):
         start_time = time.time()
 
         flocking(self.boids, self.perception, self.coeffitients, self.aspect_ratio, self.velocity_range,
-                 self.acceleration_range)
+                 self.acceleration_range, self.wall_bounce)
         propagate(self.boids, self.delta_time, self.velocity_range)
 
         self.arrows.set_data(arrows=directions(self.boids, self.delta_time))
