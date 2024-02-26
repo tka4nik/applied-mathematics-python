@@ -5,11 +5,11 @@ from vispy import app, scene
 from vispy.geometry import Rect
 
 
-width, height = 1900, 1000
-N = 3000
+width, height = 3000, 1500
+N = 5000
 dt = 0.01
 aspect_ratio = width / height
-perception = 1 / 20
+perception = 1 / 30
 #                  cohesion       a   v    wall
 # coeffitients = {"cohesion": 7.0,
 #                 "separation": .5,
@@ -17,7 +17,7 @@ perception = 1 / 20
 #                 "wall": 0.03
 #                 }
 #                        sep  coh  ali  wall
-coeffitients = np.array([15.0, 8.0, 3.0, 0.3])
+coeffitients = np.array([10.0, 8.0, 2.0, 0.3])
 velocity_range = np.array([0.2, 0.7])
 acceleration_range = np.array([0, 2])
 

@@ -116,6 +116,20 @@ def cohesion(boids: np.ndarray, i: int, distance_mask: np.ndarray):
 
 @njit
 def compute_walls_interations(boids: np.ndarray, i: int, aspect_ratio: float):
+    # mask_walls = np.empty(4)
+    # mask_walls[0] = boids[i, 1] > 1
+    # mask_walls[1] = boids[i, 0] > aspect_ratio
+    # mask_walls[2] = boids[i, 1] < 0
+    # mask_walls[3] = boids[i, 0] < 0
+    #
+    # if mask_walls[0]:
+    #     boids[i, 1] = 0
+    # if mask_walls[1]:
+    #     boids[i, 0] = 0
+    # if mask_walls[2]:
+    #     boids[i, 1] = 1
+    # if mask_walls[3]:
+    #     boids[i, 0] = aspect_ratio
     mask_walls = np.empty(4)
     mask_walls[0] = boids[i, 1] > 1
     mask_walls[1] = boids[i, 0] > aspect_ratio
@@ -123,13 +137,20 @@ def compute_walls_interations(boids: np.ndarray, i: int, aspect_ratio: float):
     mask_walls[3] = boids[i, 0] < 0
 
     if mask_walls[0]:
-        boids[i, 1] = 0
+        boids[i, 3] = -boids[i, 3]
+        boids[i][1] = 1 - 0.001
+
     if mask_walls[1]:
-        boids[i, 0] = 0
+        boids[i, 2] = -boids[i, 2]
+        boids[i, 0] = aspect_ratio - 0.001
+
     if mask_walls[2]:
-        boids[i, 1] = 1
+        boids[i, 3] = -boids[i, 3]
+        boids[i, 1] = 0.001
+
     if mask_walls[3]:
-        boids[i, 0] = aspect_ratio
+        boids[i, 2] = -boids[i, 2]
+        boids[i, 0] = 0.001
 
 
 @njit(parallel=True)
