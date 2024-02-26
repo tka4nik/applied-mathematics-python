@@ -5,19 +5,21 @@ from vispy import app, scene
 from vispy.geometry import Rect
 
 
-width, height = 500, 500
-N = 100
-dt = 0.1
+width, height = 1900, 1000
+N = 3000
+dt = 0.01
 aspect_ratio = width / height
-perception = 1 / 3
+perception = 1 / 20
 #                  cohesion       a   v    wall
-coeffitients = {"cohesion": 7.0,
-                "separation": .5,
-                "alignment": 3,
-                "wall": 0.03
-                }
-velocity_range = (0.2, 0.5)
-acceleration_range = (0, 3)
+# coeffitients = {"cohesion": 7.0,
+#                 "separation": .5,
+#                 "alignment": 3,
+#                 "wall": 0.03
+#                 }
+#                        sep  coh  ali  wall
+coeffitients = np.array([15.0, 8.0, 3.0, 0.3])
+velocity_range = np.array([0.2, 0.7])
+acceleration_range = np.array([0, 2])
 
 # (x,y), (vx, vy), (ax, ay)
 boids = np.zeros((N, 6), dtype=np.float64)
@@ -29,13 +31,13 @@ view.camera = scene.PanZoomCamera(rect=Rect(0, 0, aspect_ratio, 1))
 arrows = scene.Arrow(arrows=directions(boids, dt), arrow_color=(1, 1, 1, 1), arrow_size=5, connect='segments',
                      parent=view.scene)
 
-global delta_time
+# global delta_time
 delta_time = dt
 
 
 def update(event):
-    global delta_time
-    start_time = time.time()
+    # global delta_time
+    # start_time = time.time()
 
     flocking(boids, perception, coeffitients, aspect_ratio, velocity_range, acceleration_range)
     propagate(boids, delta_time, velocity_range)
@@ -44,8 +46,8 @@ def update(event):
     canvas.update()  # отображение
 
     # time.sleep(0.05)
-    end_time = time.time()
-    delta_time = end_time - start_time
+    # end_time = time.time()
+    # delta_time = end_time - start_time
 
 
 if __name__ == '__main__':
