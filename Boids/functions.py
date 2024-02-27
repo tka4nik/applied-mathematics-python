@@ -51,7 +51,6 @@ def njit_norm_vector(vector: np.ndarray):
 
 @njit
 def distance(boids: np.ndarray, i: int):
-    # return np.linalg.norm(boids[i, 0:2] - boids[:, 0:2], axis=1)
     difference = boids[i, 0:2] - boids[:, 0:2]
     return njit_norm_axis1(difference)
 
@@ -59,13 +58,11 @@ def distance(boids: np.ndarray, i: int):
 @njit
 def clip_array(array: np.ndarray, range: np.ndarray) -> np.ndarray:
     min_magnitude, max_magnitude = range
-    # norm = np.linalg.norm(array, axis=1)
     norm = njit_norm_axis1(array)
     mask_max = norm > max_magnitude
     mask_min = norm < min_magnitude
     new_array = array.copy()
     if np.any(mask_max):
-        # array[mask_max] = (array[mask_max] / np.linalg.norm(array[mask_max], axis=1).reshape(-1, 1)) * max_magnitude
         new_array[mask_max] = (array[mask_max] / njit_norm_axis1(array[mask_max]).reshape(-1, 1)) * max_magnitude
 
     if np.any(mask_min):
@@ -93,7 +90,7 @@ def clip_vector(vector: np.ndarray, range: np.ndarray) -> np.ndarray:
 def separation(boids: np.ndarray, i: int, distance_mask: np.ndarray):
     distance_mask[i] = False
     directions = boids[i, :2] - boids[distance_mask][:, :2]
-    # directions *= (1 / (np.linalg.norm(directions) + 0.0001))
+    directions *= (1 / (njit_norm_axis1(directions) + 0.0001))
     acceleration = np.sum(directions, axis=0)
     return acceleration - boids[i, 2:4]
 
@@ -116,20 +113,6 @@ def cohesion(boids: np.ndarray, i: int, distance_mask: np.ndarray):
 
 @njit
 def compute_walls_interations(boids: np.ndarray, i: int, aspect_ratio: float):
-    # mask_walls = np.empty(4)
-    # mask_walls[0] = boids[i, 1] > 1
-    # mask_walls[1] = boids[i, 0] > aspect_ratio
-    # mask_walls[2] = boids[i, 1] < 0
-    # mask_walls[3] = boids[i, 0] < 0
-    #
-    # if mask_walls[0]:
-    #     boids[i, 1] = 0
-    # if mask_walls[1]:
-    #     boids[i, 0] = 0
-    # if mask_walls[2]:
-    #     boids[i, 1] = 1
-    # if mask_walls[3]:
-    #     boids[i, 0] = aspect_ratio
     mask_walls = np.empty(4)
     mask_walls[0] = boids[i, 1] > 1
     mask_walls[1] = boids[i, 0] > aspect_ratio
@@ -137,20 +120,34 @@ def compute_walls_interations(boids: np.ndarray, i: int, aspect_ratio: float):
     mask_walls[3] = boids[i, 0] < 0
 
     if mask_walls[0]:
-        boids[i, 3] = -boids[i, 3]
-        boids[i][1] = 1 - 0.001
-
+        boids[i, 1] = 0
     if mask_walls[1]:
-        boids[i, 2] = -boids[i, 2]
-        boids[i, 0] = aspect_ratio - 0.001
-
+        boids[i, 0] = 0
     if mask_walls[2]:
-        boids[i, 3] = -boids[i, 3]
-        boids[i, 1] = 0.001
-
+        boids[i, 1] = 1
     if mask_walls[3]:
-        boids[i, 2] = -boids[i, 2]
-        boids[i, 0] = 0.001
+        boids[i, 0] = aspect_ratio
+    # mask_walls = np.empty(4)
+    # mask_walls[0] = boids[i, 1] > 1
+    # mask_walls[1] = boids[i, 0] > aspect_ratio
+    # mask_walls[2] = boids[i, 1] < 0
+    # mask_walls[3] = boids[i, 0] < 0
+    #
+    # if mask_walls[0]:
+    #     boids[i, 3] = -boids[i, 3]
+    #     boids[i][1] = 1 - 0.001
+    #
+    # if mask_walls[1]:
+    #     boids[i, 2] = -boids[i, 2]
+    #     boids[i, 0] = aspect_ratio - 0.001
+    #
+    # if mask_walls[2]:
+    #     boids[i, 3] = -boids[i, 3]
+    #     boids[i, 1] = 0.001
+    #
+    # if mask_walls[3]:
+    #     boids[i, 2] = -boids[i, 2]
+    #     boids[i, 0] = 0.001
 
 
 @njit(parallel=True)

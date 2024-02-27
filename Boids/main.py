@@ -17,7 +17,7 @@ perception = 1 / 30
 #                 "wall": 0.03
 #                 }
 #                        sep  coh  ali  wall
-coeffitients = np.array([10.0, 8.0, 2.0, 0.3])
+coeffitients = np.array([.4, 15.0, 2.0, 0.3])
 velocity_range = np.array([0.2, 0.7])
 acceleration_range = np.array([0, 2])
 
