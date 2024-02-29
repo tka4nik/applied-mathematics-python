@@ -35,7 +35,7 @@ def directions(boids: np.ndarray, dt=float) -> np.ndarray:
 
 @njit
 def njit_norm_axis1(vector: np.ndarray):
-    norm = np.zeros(vector.shape[0], dtype=np.float64)
+    norm = np.empty(vector.shape[0], dtype=np.float64)
     for j in prange(vector.shape[0]):
         norm[j] = np.sqrt(vector[j, 0] * vector[j, 0] + vector[j, 1] * vector[j, 1])
     return norm
@@ -44,7 +44,7 @@ def njit_norm_axis1(vector: np.ndarray):
 @njit
 def njit_norm_vector(vector: np.ndarray):
     norm = 0
-    for j in prange(vector.shape[0]):
+    for j in range(vector.shape[0]):
         norm += vector[j] * vector[j]
     return np.sqrt(norm)
 
@@ -113,20 +113,6 @@ def cohesion(boids: np.ndarray, i: int, distance_mask: np.ndarray):
 
 @njit
 def compute_walls_interations(boids: np.ndarray, i: int, aspect_ratio: float):
-    mask_walls = np.empty(4)
-    mask_walls[0] = boids[i, 1] > 1
-    mask_walls[1] = boids[i, 0] > aspect_ratio
-    mask_walls[2] = boids[i, 1] < 0
-    mask_walls[3] = boids[i, 0] < 0
-
-    if mask_walls[0]:
-        boids[i, 1] = 0
-    if mask_walls[1]:
-        boids[i, 0] = 0
-    if mask_walls[2]:
-        boids[i, 1] = 1
-    if mask_walls[3]:
-        boids[i, 0] = aspect_ratio
     # mask_walls = np.empty(4)
     # mask_walls[0] = boids[i, 1] > 1
     # mask_walls[1] = boids[i, 0] > aspect_ratio
@@ -134,34 +120,51 @@ def compute_walls_interations(boids: np.ndarray, i: int, aspect_ratio: float):
     # mask_walls[3] = boids[i, 0] < 0
     #
     # if mask_walls[0]:
-    #     boids[i, 3] = -boids[i, 3]
-    #     boids[i][1] = 1 - 0.001
-    #
+    #     boids[i, 1] = 0
     # if mask_walls[1]:
-    #     boids[i, 2] = -boids[i, 2]
-    #     boids[i, 0] = aspect_ratio - 0.001
-    #
+    #     boids[i, 0] = 0
     # if mask_walls[2]:
-    #     boids[i, 3] = -boids[i, 3]
-    #     boids[i, 1] = 0.001
-    #
+    #     boids[i, 1] = 1
     # if mask_walls[3]:
-    #     boids[i, 2] = -boids[i, 2]
-    #     boids[i, 0] = 0.001
+    #     boids[i, 0] = aspect_ratio
+    mask_walls = np.empty(4)
+    mask_walls[0] = boids[i, 1] > 1
+    mask_walls[1] = boids[i, 0] > aspect_ratio
+    mask_walls[2] = boids[i, 1] < 0
+    mask_walls[3] = boids[i, 0] < 0
+
+    if mask_walls[0]:
+        boids[i, 3] = -boids[i, 3]
+        boids[i][1] = 1 - 0.001
+
+    if mask_walls[1]:
+        boids[i, 2] = -boids[i, 2]
+        boids[i, 0] = aspect_ratio - 0.001
+
+    if mask_walls[2]:
+        boids[i, 3] = -boids[i, 3]
+        boids[i, 1] = 0.001
+
+    if mask_walls[3]:
+        boids[i, 2] = -boids[i, 2]
+        boids[i, 0] = 0.001
 
 
 @njit(parallel=True)
 def flocking(boids: np.ndarray, perseption: float, coeffitients: np.ndarray, aspect_ratio: float, v_range: np.ndarray,
              a_range: np.ndarray):
-    a_separation = np.zeros(2)
-    a_cohesion = np.zeros(2)
-    a_alignment = np.zeros(2)
     for i in prange(boids.shape[0]):
+        a_separation = np.empty(2)
+        a_cohesion = np.empty(2)
+        a_alignment = np.empty(2)
+
         d = distance(boids, i)
         perception_mask = d < perseption
         separation_mask = d < perseption / 2
         separation_mask[i] = False
         cohesion_mask = np.logical_xor(perception_mask, separation_mask)
+        aligment_mask = perception_mask
+        aligment_mask[i] = False
 
         compute_walls_interations(boids, i, aspect_ratio)
 
@@ -170,9 +173,11 @@ def flocking(boids: np.ndarray, perseption: float, coeffitients: np.ndarray, asp
                 a_separation = separation(boids, i, separation_mask)
             if np.any(cohesion_mask):
                 a_cohesion = cohesion(boids, i, cohesion_mask)
-            a_alignment = alignment(boids, i, perception_mask)
+            if np.any(aligment_mask):
+                a_alignment = alignment(boids, i, aligment_mask)
             a_separation = clip_vector(a_separation, a_range)
             a_cohesion = clip_vector(a_cohesion, a_range)
+            a_alignment = clip_vector(a_alignment, a_range)
 
         acceleration = coeffitients[0] * a_separation \
                        + coeffitients[1] * a_cohesion \

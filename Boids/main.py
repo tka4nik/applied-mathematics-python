@@ -5,11 +5,11 @@ from vispy import app, scene
 from vispy.geometry import Rect
 
 
-width, height = 3000, 1500
+width, height = 4000, 3000
 N = 5000
 dt = 0.01
 aspect_ratio = width / height
-perception = 1 / 30
+perception = 1 / 20
 #                  cohesion       a   v    wall
 # coeffitients = {"cohesion": 7.0,
 #                 "separation": .5,
@@ -18,7 +18,9 @@ perception = 1 / 30
 #                 }
 #                        sep  coh  ali  wall
 coeffitients = np.array([.4, 15.0, 2.0, 0.3])
-velocity_range = np.array([0.2, 0.7])
+# coeffitients = np.array([.3, 1.5, 0.3, 0.3])
+# coeffitients = np.array([.3, 1.5, 0.3, 0.3])
+velocity_range = np.array([0.2, 0.8])
 acceleration_range = np.array([0, 2])
 
 # (x,y), (vx, vy), (ax, ay)
@@ -28,9 +30,10 @@ init_boids(boids, aspect_ratio, velocity_range)
 canvas = scene.SceneCanvas(show=True, size=(width, height))
 view = canvas.central_widget.add_view()
 view.camera = scene.PanZoomCamera(rect=Rect(0, 0, aspect_ratio, 1))
-arrows = scene.Arrow(arrows=directions(boids, dt), arrow_color=(1, 1, 1, 1), arrow_size=5, connect='segments',
+arrows = scene.Arrow(arrows=directions(boids, dt), arrow_color=(1, 1, 1, 1), arrow_size=10, connect='segments',
                      parent=view.scene)
 
+# global delta_time
 # global delta_time
 delta_time = dt
 
