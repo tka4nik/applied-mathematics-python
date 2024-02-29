@@ -24,8 +24,8 @@ class BoidsSimulation(QMainWindow):
         layout = QVBoxLayout(self.central_widget)
 
         # ========================================================
-        width, height = 1920, 1080
-        N = 5000
+        width, height = 1500, 1000
+        N = 3000
         self.delta_time = 0.01
         self.aspect_ratio = width / height
         self.perception = 1 / 20
@@ -34,24 +34,44 @@ class BoidsSimulation(QMainWindow):
         #                      "alignment": .3,
         #                      "wall": 0.03
         #                      }
-        #                             s    c     a    w
-        self.coeffitients = np.array([.4, 15.0, 2.0, 0.3])
+        #                              s    c     a    w
+        # self.coeffitients = np.array([
+        #     [.2, 5.0, 2.0, 0.3],  # c11
+        #     [.2, 5.0, 2.0, 0.3],  # c12
+        #     [.2, 5.0, 2.0, 0.3],  # c21
+        #     [.2, 5.0, 2.0, 0.3]   # c22
+        # ])
 
-        self.velocity_range = (0.2, 0.5)
-        self.acceleration_range = (0, 3)
+        self.coeffitients = np.array([
+            [.2, 5.0, 2.0, 0.3],
+            [.0, 0.0, 0.0, 0.3],
+            [.0, 0.0, 0.0, 0.3],
+            [.2, 5.0, 2.0, 0.3]
+        ])
+
+        self.velocity_range = np.array([0.2, 0.5])
+        self.acceleration_range = np.array([0.0, 3.0])
         self.wall_bounce = False
 
         # (x,y), (vx, vy), (ax, ay)
-        self.boids = np.zeros((N, 6), dtype=np.float64)
+        self.boids = np.zeros((N, 7), dtype=np.float64)
         init_boids(self.boids, self.aspect_ratio, self.velocity_range)
         # ========================================================
 
         self.canvas = scene.SceneCanvas(show=True, size=(width, height), parent=self.central_widget)
         self.view = self.canvas.central_widget.add_view()
         self.view.camera = scene.PanZoomCamera(rect=Rect(0, 0, self.aspect_ratio, 1))
-        self.arrows = scene.Arrow(arrows=directions(self.boids, 0.1), arrow_color=(1, 1, 1, 1), arrow_size=5,
-                                  connect='segments',
-                                  parent=self.view.scene)
+        self.arrows1 = scene.Arrow(arrows=directions(self.boids[self.boids[:, 6] == 0], self.delta_time),
+                                   arrow_color=(1, 0, 0.184, 0.9),
+                                   arrow_size=5,
+                                   connect='segments',
+                                   parent=self.view.scene)
+
+        self.arrows2 = scene.Arrow(arrows=directions(self.boids[self.boids[:, 6] == 1], self.delta_time),
+                                   arrow_color=(0, 0.451, 1, 0.9),
+                                   arrow_size=5,
+                                   connect='segments',
+                                   parent=self.view.scene)
 
         self.create_sliders(layout, width, height)
         self.setLayout(layout)
@@ -63,13 +83,13 @@ class BoidsSimulation(QMainWindow):
 
     def create_sliders(self, layout, width, height):
         self.separation_label = QLabel(self)
-        self.separation_label.setText(f"Separation: {self.coeffitients[0]}")
+        self.separation_label.setText(f"Separation: {self.coeffitients[0, 0]}")
         self.separation_slider = QSlider(Qt.Orientation.Horizontal)
         self.cohesion_label = QLabel(self)
-        self.cohesion_label.setText(f"Cohesion: {self.coeffitients[1]}")
+        self.cohesion_label.setText(f"Cohesion: {self.coeffitients[1, 0]}")
         self.cohesion_slider = QSlider(Qt.Orientation.Horizontal)
         self.alignment_label = QLabel(self)
-        self.alignment_label.setText(f"Alignment: {self.coeffitients[2]}")
+        self.alignment_label.setText(f"Alignment: {self.coeffitients[2, 0]}")
         self.alignment_slider = QSlider(Qt.Orientation.Horizontal)
 
         self.wall_bounce_checkbox = QCheckBox("Wall bounce", self)
@@ -77,15 +97,15 @@ class BoidsSimulation(QMainWindow):
         self.wall_bounce_checkbox.setChecked(False)
 
         self.separation_slider.setRange(0, 50)
-        self.separation_slider.setValue(int(self.coeffitients[0]) * 10)
+        self.separation_slider.setValue(int(self.coeffitients[0, 0]) * 10)
         self.separation_slider.valueChanged.connect(self.separation_change)
 
         self.cohesion_slider.setRange(0, 30)
-        self.cohesion_slider.setValue(int(self.coeffitients[1]))
+        self.cohesion_slider.setValue(int(self.coeffitients[1, 0]))
         self.cohesion_slider.valueChanged.connect(self.cohesion_change)
 
         self.alignment_slider.setRange(0, 50)
-        self.alignment_slider.setValue(int(self.coeffitients[2] * 10))
+        self.alignment_slider.setValue(int(self.coeffitients[2, 0] * 10))
         self.alignment_slider.valueChanged.connect(self.alignment_change)
 
         layout.addWidget(self.canvas.native)
@@ -98,17 +118,17 @@ class BoidsSimulation(QMainWindow):
         layout.addWidget(self.alignment_slider)
 
     def separation_change(self, value):
-        self.coeffitients[0] = float(value / 10)
+        self.coeffitients[0, 0] = float(value / 10)
         self.separation_label.setText(f"Separation: {value / 10}")
         print(f"Separation changed to: {value / 10}")
 
     def cohesion_change(self, value):
-        self.coeffitients[1] = float(value)
+        self.coeffitients[1, 0] = float(value)
         self.cohesion_label.setText(f"Cohesion: {value}")
         print(f"Cohesion changed to: {value}")
 
     def alignment_change(self, value):
-        self.coeffitients[2] = float(value / 10)
+        self.coeffitients[2, 0] = float(value / 10)
         self.alignment_label.setText(f"Alignment: {value / 10}")
         print(f"Alignment changed to: {value / 10}")
 
@@ -126,8 +146,10 @@ class BoidsSimulation(QMainWindow):
                  self.acceleration_range, self.wall_bounce)
         propagate(self.boids, self.delta_time, self.velocity_range)
 
-        self.arrows.set_data(arrows=directions(self.boids, self.delta_time))
+        self.arrows1.set_data(arrows=directions(self.boids[self.boids[:, 6] == 0], self.delta_time))
+        self.arrows2.set_data(arrows=directions(self.boids[self.boids[:, 6] == 1], self.delta_time))
         self.canvas.update()
+        self.canvas.measure_fps()
         # print(self.coeffitients)
         # end_time = time.time()
         # self.delta_time = end_time - start_time

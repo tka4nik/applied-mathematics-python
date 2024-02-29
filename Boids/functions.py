@@ -1,9 +1,10 @@
 import numpy as np
-from numba import njit, prange
-import scipy
+from numba import njit, prange, config
+
+# config.DISABLE_JIT = False
 
 
-def init_boids(boids: np.ndarray, asp: float, vrange: tuple[float, float]):
+def init_boids(boids: np.ndarray, asp: float, vrange: np.ndarray):
     n = boids.shape[0]
     random = np.random.default_rng()
     boids[:, 0] = random.uniform(0., asp, size=n)
@@ -13,6 +14,7 @@ def init_boids(boids: np.ndarray, asp: float, vrange: tuple[float, float]):
     velocity = random.uniform(*vrange, size=n)
     cos, sin = np.cos(alpha), np.sin(alpha)
     boids[:, 2], boids[:, 3] = velocity * cos, velocity * sin
+    boids[:, 6] = random.integers(0, 2, size=n)
 
     # boids[0] = np.array([0.5, 0.5, 0, 0.5, 0, 0])
     # boids[1] = np.array([0.5, 0.55, 0, -0.1, 0, 0])
@@ -54,6 +56,7 @@ def distance(boids: np.ndarray, i: int):
     difference = boids[i, 0:2] - boids[:, 0:2]
     return njit_norm_axis1(difference)
 
+
 @njit
 def clip_array(array: np.ndarray, range: np.ndarray) -> np.ndarray:
     min_magnitude, max_magnitude = range
@@ -85,12 +88,11 @@ def clip_vector(vector: np.ndarray, range: np.ndarray) -> np.ndarray:
     return new_vector
 
 
-
 @njit
 def separation(boids: np.ndarray, i: int, distance_mask: np.ndarray):
     distance_mask[i] = False
     directions = boids[i, :2] - boids[distance_mask][:, :2]
-    directions *= (1 / (njit_norm_axis1(directions) + 0.0001))
+    directions *= (1 / (njit_norm_axis1(directions).reshape(-1, 1) + 0.0001))
     acceleration = np.sum(directions, axis=0)
     return acceleration - boids[i, 2:4]
 
@@ -109,6 +111,7 @@ def cohesion(boids: np.ndarray, i: int, distance_mask: np.ndarray):
     acceleration = np.sum(directions, axis=0)
     acceleration /= directions.shape[0]
     return acceleration - boids[i, 2:4]
+
 
 @njit
 def compute_walls_interactions_bounce(boids: np.ndarray, i: int, aspect_ratio: float):
@@ -135,7 +138,6 @@ def compute_walls_interactions_bounce(boids: np.ndarray, i: int, aspect_ratio: f
         boids[i, 0] = 0.001
 
 
-
 @njit
 def compute_walls_interactions(boids: np.ndarray, i: int, aspect_ratio: float):
     mask_walls = np.empty(4)
@@ -155,21 +157,27 @@ def compute_walls_interactions(boids: np.ndarray, i: int, aspect_ratio: float):
 
 
 @njit(parallel=True)
-def flocking(boids: np.ndarray, perseption: float, coeffitients: np.ndarray, aspect_ratio: float, v_range: np.ndarray,
+def flocking(boids: np.ndarray, perseption: float, coefficients: np.ndarray, aspect_ratio: float, v_range: np.ndarray,
              a_range: np.ndarray, wall_bounce: bool):
     for i in prange(boids.shape[0]):
-        a_separation = np.empty(2)
-        a_cohesion = np.empty(2)
-        a_alignment = np.empty(2)
+    # for i in range(boids.shape[0]):
+        a_separation = np.zeros(2)
+        a_cohesion = np.zeros(2)
+        a_alignment = np.zeros(2)
+
+        # TODO: нечитаемый, но компактый говногод
+        boid_class = int(boids[i, 6])
+        class_coefficients = coefficients[boid_class * 2: (boid_class * 2) + 2]
 
         d = distance(boids, i)
         perception_mask = d < perseption
+
+        # Макси расстояний
         separation_mask = d < perseption / 2
         separation_mask[i] = False
-
         cohesion_mask = np.logical_xor(perception_mask, separation_mask)
-        aligment_mask = perception_mask
-        aligment_mask[i] = False
+        alignment_mask = perception_mask
+        alignment_mask[i] = False
 
         if wall_bounce:
             compute_walls_interactions_bounce(boids, i, aspect_ratio)
@@ -178,19 +186,25 @@ def flocking(boids: np.ndarray, perseption: float, coeffitients: np.ndarray, asp
 
         # Main interactions
         if np.any(perception_mask):
-            if np.any(separation_mask):
-                a_separation = separation(boids, i, separation_mask)
-            if np.any(cohesion_mask):
-                a_cohesion = cohesion(boids, i, cohesion_mask)
-            if np.any(aligment_mask):
-                a_alignment = alignment(boids, i, aligment_mask)
+            for class_index in range(class_coefficients.shape[0]):
+                # Маски классов
+                class_mask = boids[:, 6] == class_index
+                class_separation_mask = np.logical_and(separation_mask, class_mask)
+                class_cohesion_mask = np.logical_and(cohesion_mask, class_mask)
+                class_alignment_mask = np.logical_and(alignment_mask, class_mask)
+
+                if np.any(class_separation_mask):
+                    a_separation += class_coefficients[class_index, 0] * separation(boids, i, class_separation_mask)
+                if np.any(class_cohesion_mask):
+                    a_cohesion += class_coefficients[class_index, 1] * cohesion(boids, i, class_cohesion_mask)
+                if np.any(class_alignment_mask):
+                    a_alignment += class_coefficients[class_index, 2] * alignment(boids, i, class_alignment_mask)
+
             a_separation = clip_vector(a_separation, a_range)
             a_cohesion = clip_vector(a_cohesion, a_range)
             a_alignment = clip_vector(a_alignment, a_range)
 
-        acceleration = coeffitients[0] * a_separation \
-                       + coeffitients[1] * a_cohesion \
-                       + coeffitients[2] * a_alignment
+        acceleration = a_separation + a_cohesion + a_alignment
         boids[i, 4:6] = acceleration
 
 
