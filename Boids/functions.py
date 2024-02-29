@@ -1,4 +1,6 @@
 import numpy as np
+from numba import njit, prange
+import scipy
 
 
 def init_boids(boids: np.ndarray, asp: float, vrange: tuple[float, float]):
@@ -31,58 +33,85 @@ def directions(boids: np.ndarray, dt=float) -> np.ndarray:
     ))
 
 
-def distance(boids, i):
-    return np.linalg.norm(boids[i, 0:2] - boids[:, 0:2], axis=1)
-    # difference = boids[i, 0:2] - boids[:, 0:2]
-    #
-    # distances = np.ndarray(difference.shape[0])
-    # for j in range(difference.shape[0]):
-    #     distances[j] = np.sqrt(np.sum(difference[j] ** 2))
-    # return np.sqrt(distances)
+@njit
+def njit_norm_axis1(vector: np.ndarray):
+    norm = np.empty(vector.shape[0], dtype=np.float64)
+    for j in prange(vector.shape[0]):
+        norm[j] = np.sqrt(vector[j, 0] * vector[j, 0] + vector[j, 1] * vector[j, 1])
+    return norm
 
 
-def clip_array(array, range):
+@njit
+def njit_norm_vector(vector: np.ndarray):
+    norm = 0
+    for j in range(vector.shape[0]):
+        norm += vector[j] * vector[j]
+    return np.sqrt(norm)
+
+
+@njit
+def distance(boids: np.ndarray, i: int):
+    difference = boids[i, 0:2] - boids[:, 0:2]
+    return njit_norm_axis1(difference)
+
+@njit
+def clip_array(array: np.ndarray, range: np.ndarray) -> np.ndarray:
     min_magnitude, max_magnitude = range
-    norm = np.linalg.norm(array, axis=1)
+    norm = njit_norm_axis1(array)
     mask_max = norm > max_magnitude
     mask_min = norm < min_magnitude
+    new_array = array.copy()
     if np.any(mask_max):
-        array[mask_max] = (array[mask_max] / np.linalg.norm(array[mask_max], axis=1).reshape(-1, 1)) * max_magnitude
+        new_array[mask_max] = (array[mask_max] / njit_norm_axis1(array[mask_max]).reshape(-1, 1)) * max_magnitude
 
     if np.any(mask_min):
-        array[mask_min] = (array[mask_min] / np.linalg.norm(array[mask_min], axis=1).reshape(-1, 1)) * min_magnitude
+        new_array[mask_min] = (array[mask_min] / njit_norm_axis1(array[mask_min]).reshape(-1, 1)) * min_magnitude
+
+    return new_array
 
 
-def clip_vector(vector, range):
+@njit
+def clip_vector(vector: np.ndarray, range: np.ndarray) -> np.ndarray:
     min_magnitude, max_magnitude = range
-    norm = np.linalg.norm(vector)
+    norm = njit_norm_vector(vector)
     mask_max = norm > max_magnitude
     mask_min = norm < min_magnitude
+    new_vector = vector.copy()
     if mask_max:
-        vector[mask_max] = (vector[mask_max] / np.linalg.norm(vector[mask_max])) * max_magnitude
+        new_vector = (vector / norm) * max_magnitude
 
     if mask_min:
-        vector[mask_min] = (vector[mask_min] / np.linalg.norm(vector[mask_min])) * min_magnitude
+        new_vector = (vector / norm) * min_magnitude
+    return new_vector
 
 
-def compute_walls_interations(boids, i, aspect_ratio):
-    mask_walls = np.empty(4)
-    mask_walls[0] = boids[i, 1] > 1
-    mask_walls[1] = boids[i, 0] > aspect_ratio
-    mask_walls[3] = boids[i, 0] < 0
-    mask_walls[2] = boids[i, 1] < 0
 
-    if mask_walls[0]:
-        boids[i, 1] = 0
-    if mask_walls[1]:
-        boids[i, 0] = 0
-    if mask_walls[2]:
-        boids[i, 1] = 1
-    if mask_walls[3]:
-        boids[i, 0] = aspect_ratio
+@njit
+def separation(boids: np.ndarray, i: int, distance_mask: np.ndarray):
+    distance_mask[i] = False
+    directions = boids[i, :2] - boids[distance_mask][:, :2]
+    directions *= (1 / (njit_norm_axis1(directions) + 0.0001))
+    acceleration = np.sum(directions, axis=0)
+    return acceleration - boids[i, 2:4]
 
 
-def compute_walls_interations_bounce(boids, i, aspect_ratio):
+@njit
+def alignment(boids: np.ndarray, i: int, distance_mask: np.ndarray):
+    velocity = boids[distance_mask][:, 2:4]
+    acceleration = np.sum(velocity, axis=0)
+    acceleration /= velocity.shape[0]
+    return acceleration - boids[i, 2:4]
+
+
+@njit
+def cohesion(boids: np.ndarray, i: int, distance_mask: np.ndarray):
+    directions = boids[distance_mask][:, :2] - boids[i, :2]
+    acceleration = np.sum(directions, axis=0)
+    acceleration /= directions.shape[0]
+    return acceleration - boids[i, 2:4]
+
+@njit
+def compute_walls_interactions_bounce(boids: np.ndarray, i: int, aspect_ratio: float):
     mask_walls = np.empty(4)
     mask_walls[0] = boids[i, 1] > 1
     mask_walls[1] = boids[i, 0] > aspect_ratio
@@ -106,43 +135,46 @@ def compute_walls_interations_bounce(boids, i, aspect_ratio):
         boids[i, 0] = 0.001
 
 
-def separation(boids, i, distance_mask):
-    distance_mask[i] = False
-    directions = boids[i, :2] - boids[distance_mask][:, :2]
-    directions *= (1 / (np.linalg.norm(directions, axis=0) + 0.0001))
-    acceleration = np.sum(directions, axis=0)
-    return acceleration - boids[i, 2:4]
+
+@njit
+def compute_walls_interactions(boids: np.ndarray, i: int, aspect_ratio: float):
+    mask_walls = np.empty(4)
+    mask_walls[0] = boids[i, 1] > 1
+    mask_walls[1] = boids[i, 0] > aspect_ratio
+    mask_walls[2] = boids[i, 1] < 0
+    mask_walls[3] = boids[i, 0] < 0
+
+    if mask_walls[0]:
+        boids[i, 1] = 0
+    if mask_walls[1]:
+        boids[i, 0] = 0
+    if mask_walls[2]:
+        boids[i, 1] = 1
+    if mask_walls[3]:
+        boids[i, 0] = aspect_ratio
 
 
-def alignment(boids, i, distance_mask):
-    velocity = boids[distance_mask][:, 2:4]
-    acceleration = np.sum(velocity, axis=0)
-    acceleration /= velocity.shape[0]
-    return acceleration - boids[i, 2:4]
+@njit(parallel=True)
+def flocking(boids: np.ndarray, perseption: float, coeffitients: np.ndarray, aspect_ratio: float, v_range: np.ndarray,
+             a_range: np.ndarray, wall_bounce: bool):
+    for i in prange(boids.shape[0]):
+        a_separation = np.empty(2)
+        a_cohesion = np.empty(2)
+        a_alignment = np.empty(2)
 
-
-def cohesion(boids, i, distance_mask):
-    directions = boids[distance_mask][:, :2] - boids[i, :2]
-    acceleration = np.sum(directions, axis=0)
-    acceleration /= directions.shape[0]
-    return acceleration - boids[i, 2:4]
-
-
-def flocking(boids, perseption, coeffitients, aspect_ratio, v_range, a_range, wall_bounce):
-    a_separation = np.zeros(2)
-    a_cohesion = np.zeros(2)
-    a_alignment = np.zeros(2)
-    for i in range(boids.shape[0]):
         d = distance(boids, i)
         perception_mask = d < perseption
         separation_mask = d < perseption / 2
         separation_mask[i] = False
-        cohesion_mask = np.logical_xor(perception_mask, separation_mask) # In the ring between separation and perseption ranges
+
+        cohesion_mask = np.logical_xor(perception_mask, separation_mask)
+        aligment_mask = perception_mask
+        aligment_mask[i] = False
 
         if wall_bounce:
-            compute_walls_interations_bounce(boids, i, aspect_ratio)
+            compute_walls_interactions_bounce(boids, i, aspect_ratio)
         else:
-            compute_walls_interations(boids, i, aspect_ratio)
+            compute_walls_interactions(boids, i, aspect_ratio)
 
         # Main interactions
         if np.any(perception_mask):
@@ -150,17 +182,19 @@ def flocking(boids, perseption, coeffitients, aspect_ratio, v_range, a_range, wa
                 a_separation = separation(boids, i, separation_mask)
             if np.any(cohesion_mask):
                 a_cohesion = cohesion(boids, i, cohesion_mask)
-            a_alignment = alignment(boids, i, perception_mask)
-            clip_vector(a_separation, a_range)
-            clip_vector(a_cohesion, a_range)
+            if np.any(aligment_mask):
+                a_alignment = alignment(boids, i, aligment_mask)
+            a_separation = clip_vector(a_separation, a_range)
+            a_cohesion = clip_vector(a_cohesion, a_range)
+            a_alignment = clip_vector(a_alignment, a_range)
 
-        acceleration = coeffitients["separation"] * a_separation \
-                     + coeffitients["cohesion"] * a_cohesion \
-                     + coeffitients["alignment"] * a_alignment
+        acceleration = coeffitients[0] * a_separation \
+                       + coeffitients[1] * a_cohesion \
+                       + coeffitients[2] * a_alignment
         boids[i, 4:6] = acceleration
 
 
 def propagate(boids, delta_time, v_range):
     boids[:, 2:4] += boids[:, 4:6] * delta_time
-    clip_array(boids[:, 2:4], v_range)
+    boids[:, 2:4] = clip_array(boids[:, 2:4], v_range)
     boids[:, 0:2] += boids[:, 2:4] * delta_time
