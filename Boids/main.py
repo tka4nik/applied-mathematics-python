@@ -5,48 +5,59 @@ from vispy import app, scene
 from vispy.geometry import Rect
 
 from PyQt6.QtCore import Qt, QTimer
-from PyQt6.QtWidgets import QMainWindow, QSlider, QVBoxLayout, QWidget, QLabel, QCheckBox
+from PyQt6.QtWidgets import QMainWindow, QSlider, QVBoxLayout, QHBoxLayout, QWidget, QLabel, QCheckBox
+
+from functools import partial
 
 
 class BoidsSimulation(QMainWindow):
     def __init__(self):
         super().__init__()
         self.wall_bounce_checkbox = None
-        self.separation_slider = None
-        self.cohesion_label = None
-        self.alignment_label = None
-        self.separation_label = None
-        self.cohesion_slider = None
-        self.alignment_slider = None
-
-        self.central_widget = QWidget(self)
-        self.setCentralWidget(self.central_widget)
-        layout = QVBoxLayout(self.central_widget)
+        self.class_11_label = None
+        self.separation_slider_11 = None
+        self.cohesion_slider_11 = None
+        self.alignment_slider_11 = None
+        self.class_12_label = None
+        self.separation_slider_12 = None
+        self.cohesion_slider_12 = None
+        self.alignment_slider_12 = None
+        self.class_21_label = None
+        self.separation_slider_21 = None
+        self.cohesion_slider_21 = None
+        self.alignment_slider_21 = None
+        self.class_22_label = None
+        self.separation_slider_22 = None
+        self.cohesion_slider_22 = None
+        self.alignment_slider_22 = None
 
         # ========================================================
-        width, height = 1500, 1000
-        N = 3000
+        width, height = 400, 200
+        N = 500
         self.delta_time = 0.01
         self.aspect_ratio = width / height
-        self.perception = 1 / 20
-        # self.coeffitients = {"separation": 1.5,
-        #                      "cohesion": .03,
-        #                      "alignment": .3,
-        #                      "wall": 0.03
-        #                      }
-        #                              s    c     a    w
+        self.perception = 1 / 3
+
+        #      s    c     a    w
         # self.coeffitients = np.array([
         #     [.2, 5.0, 2.0, 0.3],  # c11
         #     [.2, 5.0, 2.0, 0.3],  # c12
         #     [.2, 5.0, 2.0, 0.3],  # c21
         #     [.2, 5.0, 2.0, 0.3]   # c22
         # ])
+        #
+        # self.coeffitients = np.array([
+        #     [.3, 7.0, 0.5, 0.3],
+        #     [.0, 0.0, .0, 0.3],
+        #     [.0, 0.0, .0, 0.3],
+        #     [.3, 7.0, 0.5, 0.3]
+        # ])
 
         self.coeffitients = np.array([
-            [.2, 5.0, 2.0, 0.3],
-            [.0, 0.0, 0.0, 0.3],
-            [.0, 0.0, 0.0, 0.3],
-            [.2, 5.0, 2.0, 0.3]
+            [.0, 40.0, 0.0, 0.3],
+            [.0, 40.0, .0, 0.3],
+            [.0, 40.0, .0, 0.3],
+            [.0, 40.0, 0.0, 0.3]
         ])
 
         self.velocity_range = np.array([0.2, 0.5])
@@ -56,81 +67,167 @@ class BoidsSimulation(QMainWindow):
         # (x,y), (vx, vy), (ax, ay)
         self.boids = np.zeros((N, 7), dtype=np.float64)
         init_boids(self.boids, self.aspect_ratio, self.velocity_range)
-        # ========================================================
 
-        self.canvas = scene.SceneCanvas(show=True, size=(width, height), parent=self.central_widget)
+        # =======================================================
+
+        self.main_layout = QHBoxLayout()
+        self.settings_layout = QVBoxLayout()
+
+        self.simulation = QWidget(self)
+        self.main_layout.addWidget(self.simulation)
+
+        self.canvas = scene.SceneCanvas(show=True, size=(width, height), parent=self.simulation)
         self.view = self.canvas.central_widget.add_view()
         self.view.camera = scene.PanZoomCamera(rect=Rect(0, 0, self.aspect_ratio, 1))
+        self.main_layout.addWidget(self.canvas.native)
+        self.center_camera_flag = False
+
+        self.create_settings(self.settings_layout, width, height)
+        self.main_layout.addLayout(self.settings_layout)
+
+        main_widget = QWidget()
+        main_widget.setLayout(self.main_layout)
+        self.setCentralWidget(main_widget)
+
+        # =======================================================
         self.arrows1 = scene.Arrow(arrows=directions(self.boids[self.boids[:, 6] == 0], self.delta_time),
-                                   arrow_color=(1, 0, 0.184, 0.9),
+                                   arrow_color=(1, 0, 0, 0.9),
                                    arrow_size=5,
                                    connect='segments',
                                    parent=self.view.scene)
 
         self.arrows2 = scene.Arrow(arrows=directions(self.boids[self.boids[:, 6] == 1], self.delta_time),
-                                   arrow_color=(0, 0.451, 1, 0.9),
+                                   arrow_color=(0, 0, 1, 0.9),
                                    arrow_size=5,
                                    connect='segments',
                                    parent=self.view.scene)
-
-        self.create_sliders(layout, width, height)
-        self.setLayout(layout)
 
         # Set up the timer and connect it to the update function
         self.timer = QTimer(self)
         self.timer.timeout.connect(self.update)
         self.timer.start()
 
-    def create_sliders(self, layout, width, height):
-        self.separation_label = QLabel(self)
-        self.separation_label.setText(f"Separation: {self.coeffitients[0, 0]}")
-        self.separation_slider = QSlider(Qt.Orientation.Horizontal)
-        self.cohesion_label = QLabel(self)
-        self.cohesion_label.setText(f"Cohesion: {self.coeffitients[1, 0]}")
-        self.cohesion_slider = QSlider(Qt.Orientation.Horizontal)
-        self.alignment_label = QLabel(self)
-        self.alignment_label.setText(f"Alignment: {self.coeffitients[2, 0]}")
-        self.alignment_slider = QSlider(Qt.Orientation.Horizontal)
-
+    def create_settings(self, layout, width, height):
         self.wall_bounce_checkbox = QCheckBox("Wall bounce", self)
         self.wall_bounce_checkbox.stateChanged.connect(self.wall_bounce_change)
         self.wall_bounce_checkbox.setChecked(False)
 
-        self.separation_slider.setRange(0, 50)
-        self.separation_slider.setValue(int(self.coeffitients[0, 0]) * 10)
-        self.separation_slider.valueChanged.connect(self.separation_change)
+        self.center_camera_checkbox = QCheckBox("Camera center", self)
+        self.center_camera_checkbox.stateChanged.connect(self.center_camera)
+        self.center_camera_checkbox.setChecked(False)
 
-        self.cohesion_slider.setRange(0, 30)
-        self.cohesion_slider.setValue(int(self.coeffitients[1, 0]))
-        self.cohesion_slider.valueChanged.connect(self.cohesion_change)
+        # Interactions between Class1 and Class1
+        self.class_11_label = QLabel(self)
+        self.class_11_label.setText(f"Interactions for a11: , Separation: {self.coeffitients[0, 0]}, Cohesion: {self.coeffitients[0, 1]}, Alignment: {self.coeffitients[0, 2]}")
+        self.separation_slider_11 = QSlider(Qt.Orientation.Horizontal)
+        self.cohesion_slider_11 = QSlider(Qt.Orientation.Horizontal)
+        self.alignment_slider_11 = QSlider(Qt.Orientation.Horizontal)
 
-        self.alignment_slider.setRange(0, 50)
-        self.alignment_slider.setValue(int(self.coeffitients[2, 0] * 10))
-        self.alignment_slider.valueChanged.connect(self.alignment_change)
+        self.separation_slider_11.setRange(0, 50)
+        self.separation_slider_11.setValue(int(self.coeffitients[0, 0]) * 10)
+        self.separation_slider_11.valueChanged.connect(partial(self.separation_change, i=0))
 
-        layout.addWidget(self.canvas.native)
+        self.cohesion_slider_11.setRange(0, 100)
+        self.cohesion_slider_11.setValue(int(self.coeffitients[0, 1]))
+        self.cohesion_slider_11.valueChanged.connect(partial(self.cohesion_change, i=0))
+
+        self.alignment_slider_11.setRange(0, 50)
+        self.alignment_slider_11.setValue(int(self.coeffitients[0, 2] * 10))
+        self.alignment_slider_11.valueChanged.connect(partial(self.alignment_change, i=0))
+
+        # Interactions between Class1 and Class2
+        self.class_12_label = QLabel(self)
+        self.class_12_label.setText(
+            f"Interactions for a12: , Separation: {self.coeffitients[1, 0]}, Cohesion: {self.coeffitients[1, 1]}, Alignment: {self.coeffitients[1, 2]}")
+        self.separation_slider_12 = QSlider(Qt.Orientation.Horizontal)
+        self.cohesion_slider_12 = QSlider(Qt.Orientation.Horizontal)
+        self.alignment_slider_12 = QSlider(Qt.Orientation.Horizontal)
+
+        self.separation_slider_12.setRange(0, 50)
+        self.separation_slider_12.setValue(int(self.coeffitients[1, 0]) * 10)
+        self.separation_slider_12.valueChanged.connect(partial(self.separation_change, i=1))
+
+        self.cohesion_slider_12.setRange(0, 100)
+        self.cohesion_slider_12.setValue(int(self.coeffitients[1, 1]))
+        self.cohesion_slider_12.valueChanged.connect(partial(self.cohesion_change, i=1))
+
+        self.alignment_slider_12.setRange(0, 50)
+        self.alignment_slider_12.setValue(int(self.coeffitients[1, 2] * 10))
+        self.alignment_slider_12.valueChanged.connect(partial(self.alignment_change, i=1))
+
+        # Interactions between Class2 and Class1
+        self.class_21_label = QLabel(self)
+        self.class_21_label.setText(
+            f"Interactions for a21: , Separation: {self.coeffitients[2, 0]}, Cohesion: {self.coeffitients[2, 1]}, Alignment: {self.coeffitients[2, 2]}")
+        self.separation_slider_21 = QSlider(Qt.Orientation.Horizontal)
+        self.cohesion_slider_21 = QSlider(Qt.Orientation.Horizontal)
+        self.alignment_slider_21 = QSlider(Qt.Orientation.Horizontal)
+
+        self.separation_slider_21.setRange(0, 50)
+        self.separation_slider_21.setValue(int(self.coeffitients[2, 0]) * 10)
+        self.separation_slider_21.valueChanged.connect(partial(self.separation_change, i=2))
+
+        self.cohesion_slider_21.setRange(0, 100)
+        self.cohesion_slider_21.setValue(int(self.coeffitients[2, 1]))
+        self.cohesion_slider_21.valueChanged.connect(partial(self.cohesion_change, i=2))
+
+        self.alignment_slider_21.setRange(0, 50)
+        self.alignment_slider_21.setValue(int(self.coeffitients[2, 2] * 10))
+        self.alignment_slider_21.valueChanged.connect(partial(self.alignment_change, i=2))
+
+        # Interactions between Class2 and Class2
+        self.class_22_label = QLabel(self)
+        self.class_22_label.setText(
+            f"Interactions for a22: , Separation: {self.coeffitients[3, 0]}, Cohesion: {self.coeffitients[3, 1]}, Alignment: {self.coeffitients[3, 2]}")
+        self.separation_slider_22 = QSlider(Qt.Orientation.Horizontal)
+        self.cohesion_slider_22 = QSlider(Qt.Orientation.Horizontal)
+        self.alignment_slider_22 = QSlider(Qt.Orientation.Horizontal)
+
+        self.separation_slider_22.setRange(0, 50)
+        self.separation_slider_22.setValue(int(self.coeffitients[3, 0]) * 10)
+        self.separation_slider_22.valueChanged.connect(partial(self.separation_change, i=3))
+
+        self.cohesion_slider_22.setRange(0, 100)
+        self.cohesion_slider_22.setValue(int(self.coeffitients[3, 1]))
+        self.cohesion_slider_22.valueChanged.connect(partial(self.cohesion_change, i=3))
+
+        self.alignment_slider_22.setRange(0, 50)
+        self.alignment_slider_22.setValue(int(self.coeffitients[3, 2] * 10))
+        self.alignment_slider_22.valueChanged.connect(partial(self.alignment_change, i=3))
+
         layout.addWidget(self.wall_bounce_checkbox)
-        layout.addWidget(self.separation_label)
-        layout.addWidget(self.separation_slider)
-        layout.addWidget(self.cohesion_label)
-        layout.addWidget(self.cohesion_slider)
-        layout.addWidget(self.alignment_label)
-        layout.addWidget(self.alignment_slider)
+        layout.addWidget(self.center_camera_checkbox)
+        layout.addWidget(self.class_11_label)
+        layout.addWidget(self.separation_slider_11)
+        layout.addWidget(self.cohesion_slider_11)
+        layout.addWidget(self.alignment_slider_11)
+        layout.addWidget(self.class_12_label)
+        layout.addWidget(self.separation_slider_12)
+        layout.addWidget(self.cohesion_slider_12)
+        layout.addWidget(self.alignment_slider_12)
+        layout.addWidget(self.class_21_label)
+        layout.addWidget(self.separation_slider_21)
+        layout.addWidget(self.cohesion_slider_21)
+        layout.addWidget(self.alignment_slider_21)
+        layout.addWidget(self.class_22_label)
+        layout.addWidget(self.separation_slider_22)
+        layout.addWidget(self.cohesion_slider_22)
+        layout.addWidget(self.alignment_slider_22)
 
-    def separation_change(self, value):
-        self.coeffitients[0, 0] = float(value / 10)
-        self.separation_label.setText(f"Separation: {value / 10}")
-        print(f"Separation changed to: {value / 10}")
+    def separation_change(self, value, i):
+        self.coeffitients[i, 0] = float(value / 10)
+        self.update_labels()
+        print(f"Separation {i} changed to: {value / 10}")
 
-    def cohesion_change(self, value):
-        self.coeffitients[1, 0] = float(value)
-        self.cohesion_label.setText(f"Cohesion: {value}")
-        print(f"Cohesion changed to: {value}")
+    def cohesion_change(self, value, i):
+        self.coeffitients[i, 1] = float(value)
+        self.update_labels()
+        print(f"Cohesion {i} changed to: {value}")
 
-    def alignment_change(self, value):
-        self.coeffitients[2, 0] = float(value / 10)
-        self.alignment_label.setText(f"Alignment: {value / 10}")
-        print(f"Alignment changed to: {value / 10}")
+    def alignment_change(self, value, i):
+        self.coeffitients[i, 2] = float(value / 10)
+        self.update_labels()
+        print(f"Alignment {i} changed to: {value / 10}")
 
     def wall_bounce_change(self, state):
         if state == 2:
@@ -138,6 +235,33 @@ class BoidsSimulation(QMainWindow):
         else:
             self.wall_bounce = False
         print(f"Wall bounce changed to: {self.wall_bounce}")
+
+    def center_camera(self, state):
+        if state == 2:
+            self.center_camera_flag = True
+            self.view.camera.center = tuple(self.boids[0, 0:2])
+            self.view.camera.zoom(1 / 6)
+            self.arrows1.arrow_size = 10
+            self.arrows2.arrow_size = 10
+        else:
+            self.center_camera_flag = False
+            self.view.camera.center = (0.5, 0.5)
+            self.view.camera.zoom(1)
+            self.arrows1.arrow_size = 5
+            self.arrows2.arrow_size = 5
+        print(f"Camera center changed to: {self.center_camera_checkbox}")
+
+    def update_camera(self):
+        if self.center_camera_flag:
+            print(self.view.camera.center)
+            delta_distance = self.boids[0, 0:2] - self.view.camera.center[0:2]
+            self.view.camera.pan(delta_distance)
+
+    def update_labels(self):
+        self.class_11_label.setText(f"Interactions for a11: , Separation: {self.coeffitients[0, 0]}, Cohesion: {self.coeffitients[0, 1]}, Alignment: {self.coeffitients[0, 2]}")
+        self.class_12_label.setText(f"Interactions for a12: , Separation: {self.coeffitients[1, 0]}, Cohesion: {self.coeffitients[1, 1]}, Alignment: {self.coeffitients[1, 2]}")
+        self.class_21_label.setText(f"Interactions for a21: , Separation: {self.coeffitients[2, 0]}, Cohesion: {self.coeffitients[2, 1]}, Alignment: {self.coeffitients[2, 2]}")
+        self.class_22_label.setText(f"Interactions for a22: , Separation: {self.coeffitients[3, 0]}, Cohesion: {self.coeffitients[3, 1]}, Alignment: {self.coeffitients[3, 2]}")
 
     def update(self):
         # start_time = time.time()
@@ -149,6 +273,7 @@ class BoidsSimulation(QMainWindow):
         self.arrows1.set_data(arrows=directions(self.boids[self.boids[:, 6] == 0], self.delta_time))
         self.arrows2.set_data(arrows=directions(self.boids[self.boids[:, 6] == 1], self.delta_time))
         self.canvas.update()
+        self.update_camera()
         self.canvas.measure_fps()
         # print(self.coeffitients)
         # end_time = time.time()

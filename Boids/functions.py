@@ -98,18 +98,18 @@ def separation(boids: np.ndarray, i: int, distance_mask: np.ndarray):
 
 
 @njit
-def alignment(boids: np.ndarray, i: int, distance_mask: np.ndarray):
-    velocity = boids[distance_mask][:, 2:4]
-    acceleration = np.sum(velocity, axis=0)
-    acceleration /= velocity.shape[0]
-    return acceleration - boids[i, 2:4]
-
-
-@njit
 def cohesion(boids: np.ndarray, i: int, distance_mask: np.ndarray):
     directions = boids[distance_mask][:, :2] - boids[i, :2]
     acceleration = np.sum(directions, axis=0)
     acceleration /= directions.shape[0]
+    return acceleration - boids[i, 2:4]
+
+
+@njit
+def alignment(boids: np.ndarray, i: int, distance_mask: np.ndarray):
+    velocity = boids[distance_mask][:, 2:4]
+    acceleration = np.sum(velocity, axis=0)
+    acceleration /= velocity.shape[0]
     return acceleration - boids[i, 2:4]
 
 
