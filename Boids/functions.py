@@ -99,9 +99,9 @@ def separation(boids: np.ndarray, i: int, distance_mask: np.ndarray):
 
 @njit
 def cohesion(boids: np.ndarray, i: int, distance_mask: np.ndarray):
-    directions = boids[distance_mask][:, :2] - boids[i, :2]
-    acceleration = np.sum(directions, axis=0)
-    acceleration /= directions.shape[0]
+    directions = boids[distance_mask][:, :2]
+    acceleration = (np.sum(directions, axis=0) / directions.shape[0]) - boids[i, :2]
+    # acceleration /= directions.shape[0]
     return acceleration - boids[i, 2:4]
 
 
@@ -123,7 +123,7 @@ def compute_walls_interactions_bounce(boids: np.ndarray, i: int, aspect_ratio: f
 
     if mask_walls[0]:
         boids[i, 3] = -boids[i, 3]
-        boids[i][1] = 1 - 0.001
+        boids[i, 1] = 1 - 0.001
 
     if mask_walls[1]:
         boids[i, 2] = -boids[i, 2]
@@ -136,6 +136,20 @@ def compute_walls_interactions_bounce(boids: np.ndarray, i: int, aspect_ratio: f
     if mask_walls[3]:
         boids[i, 2] = -boids[i, 2]
         boids[i, 0] = 0.001
+
+
+@njit
+def walls(boids: np.ndarray, i: int, aspect_ratio: float):  # избегание стен - чем ближе к стене, тем больше значение ускорения от стены
+    x = boids[i, 0]
+    y = boids[i, 1]
+
+    a_left = 1 / np.abs(x + 0.1)
+    a_right = 1 / np.abs((x - aspect_ratio) + 0.01)
+
+    a_bottom = 1 / (np.abs(y) + 0.1)
+    a_top = 1 / (np.abs(y - 1.0) + 0.1)
+
+    return np.array([a_left - a_right, a_bottom - a_top])
 
 
 @njit
@@ -160,10 +174,10 @@ def compute_walls_interactions(boids: np.ndarray, i: int, aspect_ratio: float):
 def flocking(boids: np.ndarray, perseption: float, coefficients: np.ndarray, aspect_ratio: float, v_range: np.ndarray,
              a_range: np.ndarray, wall_bounce: bool):
     for i in prange(boids.shape[0]):
-    # for i in range(boids.shape[0]):
         a_separation = np.zeros(2)
         a_cohesion = np.zeros(2)
         a_alignment = np.zeros(2)
+        a_walls = np.zeros(2)
 
         # TODO: нечитаемый, но компактый говногод
         boid_class = int(boids[i, 6])
@@ -200,11 +214,14 @@ def flocking(boids: np.ndarray, perseption: float, coefficients: np.ndarray, asp
                 if np.any(class_alignment_mask):
                     a_alignment += class_coefficients[class_index, 2] * alignment(boids, i, class_alignment_mask)
 
+                a_walls = walls(boids, i, aspect_ratio)
+
             a_separation = clip_vector(a_separation, a_range)
             a_cohesion = clip_vector(a_cohesion, a_range)
             a_alignment = clip_vector(a_alignment, a_range)
+            a_walls = clip_vector(a_walls, a_range)
 
-        acceleration = a_separation + a_cohesion + a_alignment
+        acceleration = a_separation + a_cohesion + a_alignment + a_walls * class_coefficients[0, 3]
         boids[i, 4:6] = acceleration
 
 
