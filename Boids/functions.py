@@ -144,7 +144,7 @@ def walls(boids: np.ndarray, i: int, aspect_ratio: float):  # избегание
     y = boids[i, 1]
 
     a_left = 1 / np.abs(x + 0.1)
-    a_right = 1 / np.abs((x - aspect_ratio) + 0.01)
+    a_right = 1 / np.abs((x - aspect_ratio) + 0.1)
 
     a_bottom = 1 / (np.abs(y) + 0.1)
     a_top = 1 / (np.abs(y - 1.0) + 0.1)
