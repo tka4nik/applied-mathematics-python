@@ -12,6 +12,6 @@ if __name__ == '__main__':
             [1.2, .1, 0.0, 0.2],
             [.1, 7.0, 0.1, 0.2]
         ])
-    window = BoidsSimulation(3000, coefficients, 3000, 1500)
+    window = BoidsSimulation(5000, coefficients, 3000, 1500)
     window.show()
     app.run()
