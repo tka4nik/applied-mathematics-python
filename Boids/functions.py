@@ -1,13 +1,16 @@
 import numpy as np
-from numba import njit, prange, config
-
-# config.DISABLE_JIT = False
+from numba import njit, prange
 
 
-def init_boids(boids: np.ndarray, asp: float, vrange: np.ndarray):
+def init_boids(boids: np.ndarray, aspect_ratio: float, vrange: np.ndarray):
+    """
+    Constructor for boids array
+    :param boids: numpy array (N, 6) -> [x, y, vx, vy, ax, ay, class]
+    :param vrange: numpy array - allowed velocity range
+    """
     n = boids.shape[0]
     random = np.random.default_rng()
-    boids[:, 0] = random.uniform(0., asp, size=n)
+    boids[:, 0] = random.uniform(0., aspect_ratio, size=n)
     boids[:, 1] = random.uniform(0., 1., size=n)
 
     alpha = random.uniform(0, 2 * np.pi, size=n)
@@ -16,27 +19,24 @@ def init_boids(boids: np.ndarray, asp: float, vrange: np.ndarray):
     boids[:, 2], boids[:, 3] = velocity * cos, velocity * sin
     boids[:, 6] = random.integers(0, 2, size=n)
 
-    # boids[0] = np.array([0.5, 0.5, 0, 0.5, 0, 0])
-    # boids[1] = np.array([0.5, 0.55, 0, -0.1, 0, 0])
-    # boids[2] = np.array([0.54, 0.525, -0.1, -0.1, 0, 0])
-    # print(boids)
 
-
-def directions(boids: np.ndarray, dt=float) -> np.ndarray:
+def directions(boids: np.ndarray, delta_time: float) -> np.ndarray:
     """
-
-    :param boids:
-    :param dt:
+    Function that calculates coordinates of the tip of the arrow for each boid
+    :param boids: numpy array (N, 6) -> [x, y, vx, vy, ax, ay, class]
     :return: array N * (x0, y0, x1, y1) for Arrow
     """
     return np.hstack((
-        boids[:, :2] - dt * boids[:, 2:4],
+        boids[:, :2] - delta_time * boids[:, 2:4],
         boids[:, :2]
     ))
 
 
 @njit
 def njit_norm_axis1(vector: np.ndarray):
+    """
+    Numba-friendly implementation of np.linalg.norm(.., axis=1)
+    """
     norm = np.empty(vector.shape[0], dtype=np.float64)
     for j in prange(vector.shape[0]):
         norm[j] = np.sqrt(vector[j, 0] * vector[j, 0] + vector[j, 1] * vector[j, 1])
@@ -45,20 +45,30 @@ def njit_norm_axis1(vector: np.ndarray):
 
 @njit
 def njit_norm_vector(vector: np.ndarray):
+    """
+    Numba-friendly implementation of np.linalg.norm()
+    """
     norm = 0
-    for j in range(vector.shape[0]):
+    for j in prange(vector.shape[0]):
         norm += vector[j] * vector[j]
     return np.sqrt(norm)
 
 
 @njit
 def distance(boids: np.ndarray, i: int):
+    """
+    Numba-friendly implementation of distance function
+    :param i: id of a boid
+    """
     difference = boids[i, 0:2] - boids[:, 0:2]
     return njit_norm_axis1(difference)
 
 
 @njit
 def clip_array(array: np.ndarray, range: np.ndarray) -> np.ndarray:
+    """
+    Function that limits array to the specified range horizontally (axis=1)
+    """
     min_magnitude, max_magnitude = range
     norm = njit_norm_axis1(array)
     mask_max = norm > max_magnitude
@@ -75,6 +85,9 @@ def clip_array(array: np.ndarray, range: np.ndarray) -> np.ndarray:
 
 @njit
 def clip_vector(vector: np.ndarray, range: np.ndarray) -> np.ndarray:
+    """
+    Function that limits vector to the specified range
+    """
     min_magnitude, max_magnitude = range
     norm = njit_norm_vector(vector)
     mask_max = norm > max_magnitude
@@ -90,6 +103,13 @@ def clip_vector(vector: np.ndarray, range: np.ndarray) -> np.ndarray:
 
 @njit
 def separation(boids: np.ndarray, i: int, distance_mask: np.ndarray):
+    """
+    Calculates acceleration for separation force
+    :param boids: numpy array (N, 6) -> [x, y, vx, vy, ax, ay, class]
+    :param i: id of a boid
+    :param distance_mask: bool array of allowed boids (allowed by distance criteria for example)
+    :return: velocity change (acceleration)
+    """
     distance_mask[i] = False
     directions = boids[i, :2] - boids[distance_mask][:, :2]
     directions *= (1 / (njit_norm_axis1(directions).reshape(-1, 1) + 0.0001))
@@ -99,14 +119,27 @@ def separation(boids: np.ndarray, i: int, distance_mask: np.ndarray):
 
 @njit
 def cohesion(boids: np.ndarray, i: int, distance_mask: np.ndarray):
+    """
+    Calculates acceleration for cohesion force
+    :param boids: numpy array (N, 6) -> [x, y, vx, vy, ax, ay, class]
+    :param i: id of a boid
+    :param distance_mask: bool array of allowed boids (allowed by distance criteria for example)
+    :return: velocity change (acceleration)
+    """
     directions = boids[distance_mask][:, :2]
     acceleration = (np.sum(directions, axis=0) / directions.shape[0]) - boids[i, :2]
-    # acceleration /= directions.shape[0]
     return acceleration - boids[i, 2:4]
 
 
 @njit
 def alignment(boids: np.ndarray, i: int, distance_mask: np.ndarray):
+    """
+    Calculates acceleration for alignment force
+    :param boids: numpy array (N, 6) -> [x, y, vx, vy, ax, ay, class]
+    :param i: id of a boid
+    :param distance_mask: bool array of allowed boids (allowed by distance criteria for example)
+    :return: velocity change (acceleration)
+    """
     velocity = boids[distance_mask][:, 2:4]
     acceleration = np.sum(velocity, axis=0)
     acceleration /= velocity.shape[0]
@@ -114,94 +147,116 @@ def alignment(boids: np.ndarray, i: int, distance_mask: np.ndarray):
 
 
 @njit
-def compute_walls_interactions_bounce(boids: np.ndarray, i: int, aspect_ratio: float):
+def compute_walls_collisions(boids: np.ndarray, i: int, aspect_ratio: float, wall_bounce: bool):
+    """
+    Calculates behavior of boids in the event of wall collision, supports 2 behaviors:
+    - bounce
+    - teleportation to the other side
+    :param wall_bounce: bool flag
+    """
     mask_walls = np.empty(4)
     mask_walls[0] = boids[i, 1] > 1
     mask_walls[1] = boids[i, 0] > aspect_ratio
     mask_walls[2] = boids[i, 1] < 0
     mask_walls[3] = boids[i, 0] < 0
 
-    if mask_walls[0]:
-        boids[i, 3] = -boids[i, 3]
-        boids[i, 1] = 1 - 0.001
+    if wall_bounce:
+        if mask_walls[0]:
+            boids[i, 3] = -boids[i, 3]
+            boids[i, 1] = 1 - 0.001
 
-    if mask_walls[1]:
-        boids[i, 2] = -boids[i, 2]
-        boids[i, 0] = aspect_ratio - 0.001
+        if mask_walls[1]:
+            boids[i, 2] = -boids[i, 2]
+            boids[i, 0] = aspect_ratio - 0.001
 
-    if mask_walls[2]:
-        boids[i, 3] = -boids[i, 3]
-        boids[i, 1] = 0.001
+        if mask_walls[2]:
+            boids[i, 3] = -boids[i, 3]
+            boids[i, 1] = 0.001
 
-    if mask_walls[3]:
-        boids[i, 2] = -boids[i, 2]
-        boids[i, 0] = 0.001
+        if mask_walls[3]:
+            boids[i, 2] = -boids[i, 2]
+            boids[i, 0] = 0.001
+    else:
+        if mask_walls[0]:
+            boids[i, 1] = 0
+
+        if mask_walls[1]:
+            boids[i, 0] = 0
+
+        if mask_walls[2]:
+            boids[i, 1] = 1
+
+        if mask_walls[3]:
+            boids[i, 0] = aspect_ratio
 
 
 @njit
-def walls(boids: np.ndarray, i: int, aspect_ratio: float):  # избегание стен - чем ближе к стене, тем больше значение ускорения от стены
-    x = boids[i, 0]
-    y = boids[i, 1]
+def compute_walls_acceleration(boids: np.ndarray, i: int, aspect_ratio: float, perception: float, wall_bounce: bool):
+    """
+    Calculates acceleration for the smooth walls interactions (works alongside bounce-walls collision)
+    """
+    if wall_bounce:
+        x, y = boids[i, 0:2]
+        left_distance = np.abs(x + 0.01)
+        right_distance = np.abs((aspect_ratio - x) - 0.01)
+        top_distance = np.abs((1 - y) - 0.01)
+        bottom_distance = np.abs(y + 0.01)
+        a_left = a_right = a_top = a_bottom = 0.0
 
-    a_left = 1 / np.abs(x + 0.1)
-    a_right = 1 / np.abs((x - aspect_ratio) + 0.1)
+        if left_distance <= perception * 2:
+            a_left = 1 / left_distance ** 2
 
-    a_bottom = 1 / (np.abs(y) + 0.1)
-    a_top = 1 / (np.abs(y - 1.0) + 0.1)
+        if right_distance <= perception * 2:
+            a_right = 1 / right_distance ** 2
 
-    return np.array([a_left - a_right, a_bottom - a_top])
+        if top_distance <= perception * 2:
+            a_top = 1 / top_distance ** 2
 
+        if bottom_distance <= perception * 2:
+            a_bottom = 1 / bottom_distance ** 2
 
-@njit
-def compute_walls_interactions(boids: np.ndarray, i: int, aspect_ratio: float):
-    mask_walls = np.empty(4)
-    mask_walls[0] = boids[i, 1] > 1
-    mask_walls[1] = boids[i, 0] > aspect_ratio
-    mask_walls[2] = boids[i, 1] < 0
-    mask_walls[3] = boids[i, 0] < 0
-
-    if mask_walls[0]:
-        boids[i, 1] = 0
-    if mask_walls[1]:
-        boids[i, 0] = 0
-    if mask_walls[2]:
-        boids[i, 1] = 1
-    if mask_walls[3]:
-        boids[i, 0] = aspect_ratio
+        return np.array([a_left - a_right, a_bottom - a_top]) - boids[i, 2:4]
+    else:
+        return np.zeros(2)
 
 
 @njit(parallel=True)
-def flocking(boids: np.ndarray, perseption: float, coefficients: np.ndarray, aspect_ratio: float, v_range: np.ndarray,
-             a_range: np.ndarray, wall_bounce: bool):
+def flocking(boids: np.ndarray, perception: float, coefficients: np.ndarray, aspect_ratio: float, a_range: np.ndarray, wall_bounce: bool):
+    """
+    Main function of the simulation. Calculates new acceleration values for boids
+    :param boids: numpy array (N, 6) -> [x, y, vx, vy, ax, ay, class]
+    :param perception: radius of perception for boids
+    :param a_range: allowed acceleration range
+    :param wall_bounce: bool flag
+    """
     for i in prange(boids.shape[0]):
-        a_separation = np.zeros(2)
-        a_cohesion = np.zeros(2)
-        a_alignment = np.zeros(2)
-        a_walls = np.zeros(2)
-
         # TODO: нечитаемый, но компактый говногод
         boid_class = int(boids[i, 6])
         class_coefficients = coefficients[boid_class * 2: (boid_class * 2) + 2]
 
-        d = distance(boids, i)
-        perception_mask = d < perseption
+        # Accelerations initialization
+        a_separation = np.zeros(2)
+        a_cohesion = np.zeros(2)
+        a_alignment = np.zeros(2)
+        a_walls = clip_vector(compute_walls_acceleration(boids, i, aspect_ratio, perception, wall_bounce), a_range) * class_coefficients[0, 3]
+        a_noise = np.array([np.random.uniform(-0.1, 0.1), np.random.uniform(-0.1, 0.1)]) * class_coefficients[0, 4]
 
-        # Макси расстояний
-        separation_mask = d < perseption / 2
+        # Walls collisions
+        compute_walls_collisions(boids, i, aspect_ratio, wall_bounce)
+
+        # Distance masks
+        d = distance(boids, i)
+        perception_mask = d < perception
+        separation_mask = d < (perception / 2)
         separation_mask[i] = False
         cohesion_mask = np.logical_xor(perception_mask, separation_mask)
         alignment_mask = perception_mask
         alignment_mask[i] = False
 
-        if wall_bounce:
-            compute_walls_interactions_bounce(boids, i, aspect_ratio)
-        else:
-            compute_walls_interactions(boids, i, aspect_ratio)
-
         # Main interactions
         if np.any(perception_mask):
             for class_index in range(class_coefficients.shape[0]):
-                # Маски классов
+                # Class masks
                 class_mask = boids[:, 6] == class_index
                 class_separation_mask = np.logical_and(separation_mask, class_mask)
                 class_cohesion_mask = np.logical_and(cohesion_mask, class_mask)
@@ -214,18 +269,20 @@ def flocking(boids: np.ndarray, perseption: float, coefficients: np.ndarray, asp
                 if np.any(class_alignment_mask):
                     a_alignment += class_coefficients[class_index, 2] * alignment(boids, i, class_alignment_mask)
 
-                a_walls = walls(boids, i, aspect_ratio)
-
             a_separation = clip_vector(a_separation, a_range)
             a_cohesion = clip_vector(a_cohesion, a_range)
             a_alignment = clip_vector(a_alignment, a_range)
-            a_walls = clip_vector(a_walls, a_range)
 
-        acceleration = a_separation + a_cohesion + a_alignment + a_walls * class_coefficients[0, 3]
+        acceleration = a_separation + a_cohesion + a_alignment + a_walls + a_noise
         boids[i, 4:6] = acceleration
 
 
 def propagate(boids, delta_time, v_range):
+    """
+    Propagates velocitities -> positions of boids
+    :param boids: numpy array (N, 6) -> [x, y, vx, vy, ax, ay, class]
+    :param v_range: allowed velocity range
+    """
     boids[:, 2:4] += boids[:, 4:6] * delta_time
     boids[:, 2:4] = clip_array(boids[:, 2:4], v_range)
     boids[:, 0:2] += boids[:, 2:4] * delta_time

@@ -11,7 +11,15 @@ from functools import partial
 
 
 class BoidsSimulation(QMainWindow):
+    """
+    Class - wrapper of QMainWindow class (PyQt) for gui elements of the simulation
+    Provides support for interactive sliders and checkboxes, as a well as for a more intuitive interface (using layout system)
+    """
     def __init__(self, N, coefficients, width, height):
+        """
+        Constructor
+        :param coefficients: Coefficients for the simulation
+        """
         super().__init__()
         self.wall_bounce_checkbox = None
         self.following_camera_checkbox = None
@@ -40,6 +48,7 @@ class BoidsSimulation(QMainWindow):
 
         self.N = N
         self.delta_time = 0.01
+        self.frame_count = 0
         self.aspect_ratio = width / height
         self.perception = 1 / 20
 
@@ -58,7 +67,7 @@ class BoidsSimulation(QMainWindow):
         self.simulation = QWidget(self)
         self.main_layout.addWidget(self.simulation)
 
-        self.canvas = scene.SceneCanvas(show=True, size=(width, height), parent=self.simulation)
+        self.canvas = scene.SceneCanvas(show=True, size=(width, height), parent=self.simulation, resizable=True)
         self.view = self.canvas.central_widget.add_view()
         self.view.camera = scene.PanZoomCamera(rect=Rect(0, 0, self.aspect_ratio, 1))
         self.main_layout.addWidget(self.canvas.native)
@@ -70,8 +79,7 @@ class BoidsSimulation(QMainWindow):
         main_widget.setLayout(self.main_layout)
         self.setCentralWidget(main_widget)
 
-        # =======================================================
-
+        # Visual features ======================================
         self.arrows_class1 = scene.Arrow(arrows=directions(self.boids[0:0], self.delta_time),
                                          arrow_color=(1, 0, 0, 0.9),
                                          arrow_size=7,
@@ -97,12 +105,31 @@ class BoidsSimulation(QMainWindow):
                                            connect='segments',
                                            parent=self.view.scene)
 
+        self.ellipse = scene.Ellipse(
+            center=self.boids[0],
+            radius=0,
+            color=(0, 1, 0, 0.3), border_width=0,
+            num_segments=100,
+            parent=self.view.scene
+        )
+
+        self.line = scene.visuals.Line(pos=np.array([[0, 0], [0, 1], [self.aspect_ratio, 1], [self.aspect_ratio, 0], [0, 0]]),
+                                       color=(1, 1, 1, 1),
+                                       width=1,
+                                       connect="strip",
+                                       parent=self.view.scene)
+        # ======================================
+        self.canvas.measure_fps()
         # Set up the timer and connect it to the update function
         self.timer = QTimer(self)
         self.timer.timeout.connect(self.update)
         self.timer.start()
 
     def create_settings(self, layout):
+        """
+        Creates and configures sliders and checkboxes for the settings menu.
+        Separate from the constructor for visual clarity of the code structure.
+        """
         self.wall_bounce_checkbox = QCheckBox("Wall bounce", self)
         self.wall_bounce_checkbox.stateChanged.connect(self.wall_bounce_change)
         self.wall_bounce_checkbox.setChecked(False)
@@ -116,15 +143,16 @@ class BoidsSimulation(QMainWindow):
         self.switch_colours_checkbox.setChecked(False)
 
         self.perception_label = QLabel(self)
-        self.perception_label.setText(f"Perception radius: 1 / {1/self.perception}")
+        self.perception_label.setText(f"Perception radius: 1 / {1 / self.perception}")
         self.perception_slider = QSlider(Qt.Orientation.Horizontal)
         self.perception_slider.setRange(1, 40)
-        self.perception_slider.setValue(int(1/self.perception))
+        self.perception_slider.setValue(int(1 / self.perception))
         self.perception_slider.valueChanged.connect(self.perception_change)
 
         # Interactions between Class1 and Class1
         self.class_11_label = QLabel(self)
-        self.class_11_label.setText(f"Interactions for a11: Separation: {self.coefficients[0, 0]}, Cohesion: {self.coefficients[0, 1]}, Alignment: {self.coefficients[0, 2]}")
+        self.class_11_label.setText(
+            f"Interactions for a11: Separation: {self.coefficients[0, 0]}, Cohesion: {self.coefficients[0, 1]}, Alignment: {self.coefficients[0, 2]}")
         self.separation_slider_11 = QSlider(Qt.Orientation.Horizontal)
         self.cohesion_slider_11 = QSlider(Qt.Orientation.Horizontal)
         self.alignment_slider_11 = QSlider(Qt.Orientation.Horizontal)
@@ -143,7 +171,8 @@ class BoidsSimulation(QMainWindow):
 
         # Interactions between Class1 and Class2
         self.class_12_label = QLabel(self)
-        self.class_12_label.setText(f"Interactions for a12: Separation: {self.coefficients[1, 0]}, Cohesion: {self.coefficients[1, 1]}, Alignment: {self.coefficients[1, 2]}")
+        self.class_12_label.setText(
+            f"Interactions for a12: Separation: {self.coefficients[1, 0]}, Cohesion: {self.coefficients[1, 1]}, Alignment: {self.coefficients[1, 2]}")
         self.separation_slider_12 = QSlider(Qt.Orientation.Horizontal)
         self.cohesion_slider_12 = QSlider(Qt.Orientation.Horizontal)
         self.alignment_slider_12 = QSlider(Qt.Orientation.Horizontal)
@@ -162,7 +191,8 @@ class BoidsSimulation(QMainWindow):
 
         # Interactions between Class2 and Class1
         self.class_21_label = QLabel(self)
-        self.class_21_label.setText(f"Interactions for a21: Separation: {self.coefficients[2, 0]}, Cohesion: {self.coefficients[2, 1]}, Alignment: {self.coefficients[2, 2]}")
+        self.class_21_label.setText(
+            f"Interactions for a21: Separation: {self.coefficients[2, 0]}, Cohesion: {self.coefficients[2, 1]}, Alignment: {self.coefficients[2, 2]}")
         self.separation_slider_21 = QSlider(Qt.Orientation.Horizontal)
         self.cohesion_slider_21 = QSlider(Qt.Orientation.Horizontal)
         self.alignment_slider_21 = QSlider(Qt.Orientation.Horizontal)
@@ -181,7 +211,8 @@ class BoidsSimulation(QMainWindow):
 
         # Interactions between Class2 and Class2
         self.class_22_label = QLabel(self)
-        self.class_22_label.setText(f"Interactions for a22: Separation: {self.coefficients[3, 0]}, Cohesion: {self.coefficients[3, 1]}, Alignment: {self.coefficients[3, 2]}")
+        self.class_22_label.setText(
+            f"Interactions for a22: Separation: {self.coefficients[3, 0]}, Cohesion: {self.coefficients[3, 1]}, Alignment: {self.coefficients[3, 2]}")
         self.separation_slider_22 = QSlider(Qt.Orientation.Horizontal)
         self.cohesion_slider_22 = QSlider(Qt.Orientation.Horizontal)
         self.alignment_slider_22 = QSlider(Qt.Orientation.Horizontal)
@@ -221,26 +252,42 @@ class BoidsSimulation(QMainWindow):
         layout.addWidget(self.alignment_slider_22)
 
     def perception_change(self, value):
+        """
+        Function that updates perception value according to the slider's change.
+        """
         self.perception = float(1 / value)
         self.update_labels()
-        print(f"Perception changed to: 1/{1/value}")
+        print(f"Perception changed to: 1/{1 / value}")
 
     def separation_change(self, value, i):
+        """
+        Function that updates separation value according to the slider's change.
+        """
         self.coefficients[i, 0] = float(value / 10)
         self.update_labels()
         print(f"Separation {i} changed to: {value / 10}")
 
     def cohesion_change(self, value, i):
+        """
+        Function that updates cohesion value according to the slider's change.
+        """
         self.coefficients[i, 1] = float(value)
         self.update_labels()
         print(f"Cohesion {i} changed to: {value}")
 
     def alignment_change(self, value, i):
+        """
+        Function that updates alignment value according to the slider's change.
+        """
         self.coefficients[i, 2] = float(value / 10)
         self.update_labels()
         print(f"Alignment {i} changed to: {value / 10}")
 
     def wall_bounce_change(self, state):
+        """
+        Function that handles wall bounce checkbox functionality
+        :param state: Can be 0, 1, or 2 - unchecked, partial and  checked states, accordingly
+        """
         if state == 2:
             self.wall_bounce = True
         else:
@@ -248,20 +295,30 @@ class BoidsSimulation(QMainWindow):
         print(f"Wall bounce changed to: {self.wall_bounce}")
 
     def following_camera(self, state):
+        """
+        Function that handles following camera checkbox functionality
+        :param state: Can be 0, 1, or 2 - unchecked, partial and  checked states, accordingly
+        """
         if state == 2:
             self.following_camera_flag = True
             self.view.camera.center = tuple(self.boids[0, 0:2])
             self.view.camera.zoom(1 / 6)
             self.arrows_selected.set_data(arrows=directions(self.boids[0:1], self.delta_time))
+            self.ellipse.radius = self.perception
         else:
             self.following_camera_flag = False
             self.view.camera.center = (0.5, 0.5)
             self.view.camera.zoom(1)
             self.arrows_selected.set_data(arrows=directions(self.boids[0:0], self.delta_time))
+            self.ellipse.radius = 0
 
         print(f"Camera center changed to: {self.following_camera_checkbox}")
 
     def switch_colours(self, state):
+        """
+        Function that handles switching colours checkbox functionality
+        :param state: Can be 0, 1, or 2 - unchecked, partial and  checked states, accordingly
+        """
         if state == 2:
             self.switch_colours_flag = True
             self.arrows_class1.set_data(arrows=directions(self.boids[self.boids[:, 6] == 0], self.delta_time))
@@ -274,6 +331,9 @@ class BoidsSimulation(QMainWindow):
             self.arrows_all.set_data(arrows=directions(self.boids, self.delta_time))
 
     def update_labels(self):
+        """
+        Updates labels for sliders
+        """
         self.class_11_label.setText(
             f"Interactions for a11: , Separation: {self.coefficients[0, 0]}, Cohesion: {self.coefficients[0, 1]}, Alignment: {self.coefficients[0, 2]}")
         self.class_12_label.setText(
@@ -282,10 +342,13 @@ class BoidsSimulation(QMainWindow):
             f"Interactions for a21: , Separation: {self.coefficients[2, 0]}, Cohesion: {self.coefficients[2, 1]}, Alignment: {self.coefficients[2, 2]}")
         self.class_22_label.setText(
             f"Interactions for a22: , Separation: {self.coefficients[3, 0]}, Cohesion: {self.coefficients[3, 1]}, Alignment: {self.coefficients[3, 2]}")
-        self.perception_label.setText(f"Perception radius: 1/{1/self.perception}")
-
+        self.perception_label.setText(f"Perception radius: 1/{1 / self.perception}")
 
     def update_gui(self):
+        """
+        Main function for gui updates - handles switching colours data updates,
+        following camera functionality, and contains canvas.update function call
+        """
         if self.switch_colours_flag:
             self.arrows_class1.set_data(arrows=directions(self.boids[self.boids[:, 6] == 0], self.delta_time))
             self.arrows_class2.set_data(arrows=directions(self.boids[self.boids[:, 6] == 1], self.delta_time))
@@ -296,20 +359,28 @@ class BoidsSimulation(QMainWindow):
             delta_distance = self.boids[0, 0:2] - self.view.camera.center[0:2]
             self.view.camera.pan(delta_distance)
             self.arrows_selected.set_data(arrows=directions(self.boids[0:1], self.delta_time))
+            self.ellipse.center = self.boids[0]
 
-        self.canvas.measure_fps()
-        self.setWindowTitle(f"{self.N} Boids; {np.round(self.canvas.fps, 2)} fps;")
+        if self.frame_count % 60 == 0:
+            print("bob")
+            print(np.round(self.canvas.fps, 2))
+            self.setWindowTitle(f"{self.N} Boids; {np.round(self.canvas.fps, 2)} fps;")
+
         self.canvas.update()
 
     def update(self):
+        """
+        Main loop
+        """
         self.update_gui()
 
         start_time = time.time()
 
-        flocking(self.boids, self.perception, self.coefficients, self.aspect_ratio, self.velocity_range,
-                 self.acceleration_range, self.wall_bounce)
+        flocking(self.boids, self.perception, self.coefficients, self.aspect_ratio, self.acceleration_range,
+                 self.wall_bounce)
         propagate(self.boids, self.delta_time, self.velocity_range)
 
         end_time = time.time()
-        self.delta_time = end_time - start_time
-        # print(self.delta_time)
+        self.delta_time = end_time - start_time   # FPS independency, may be commented off depending on the expected behavior
+
+        self.frame_count += 1
