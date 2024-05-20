@@ -1,4 +1,4 @@
-import taichi as ti
+import ta3ichi as ti
 import taichi_glsl as ts
 import time
 
