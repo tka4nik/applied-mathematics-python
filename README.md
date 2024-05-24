@@ -5,14 +5,13 @@ This repository contains a collection of projects in applied mathematics impleme
 ## Projects
 
 1. **Julia Set Fractal**: Given a mapping generates a corresponding Julia fractal that you can interactively explore.
-
 2. **Heat Transfer Simulation**: Simulate heat transfer scenarios using diffusion equations.
-
-3. **Ferromagnetics Simulation**: Calculates Mean Energy of a ferromagnetic using Ising's model
+3. **Ferromagnetics Simulation**: Calculates Mean Energy of a ferromagnetic using Ising's model.
 4. **Nonlinear Dynamics Graphs**:
    - Bifurcation Diagrams: Visualizes the behavior of nonlinear systems as parameters change.
    - Mapping Diagrams: Mappps the evolution of a given discrete dynamic system. 
    - Lyapunov Exponent Graphs: Analyze the stability of chaotic systems.
+5. **Numerical Methods**: Implementaion of various numerical methods to solve different problems in mathematics.
 
 ## About the Author
 
