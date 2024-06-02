@@ -5,9 +5,12 @@ This project simulates the behavior of boids using the principles of separation,
 ## Introduction
 
 Boids is an artificial life program, developed by Craig Reynolds in 1986, which simulates the flocking behavior of birds. The system is based on three simple steering behaviors:
-- **Separation**: steer to avoid crowding local flockmates.
-- **Cohesion**: steer to move toward the average position of local flockmates.
-- **Alignment**: steer towards the average heading of local flockmates.
+
+| Interactions Type                                                                                                 | Visualization                        |
+|-------------------------------------------------------------------------------------------------------------------|--------------------------------------|
+| **Separation**: Attempt to not be too close to other boids in the perception radius.                              | ![image](https://github.com/tka4nik/applied-mathematics-python/assets/39916647/884476d8-a149-4b31-a6c9-9294fd274520) |
+| **Alignment**: Speed vector strives to match the speed vectors of other boids in the perception radius.           | ![image](https://github.com/tka4nik/applied-mathematics-python/assets/39916647/93a7d688-5a8e-4b46-bec6-05a4335daa24) |
+| **Cohesion**: Attempt to move towards the center of the mass of the surrounding boids.                            |![image](https://github.com/tka4nik/applied-mathematics-python/assets/39916647/26f1032a-822a-43fb-a74a-36a0a3c1e3b2) |
 
 ![Boids Simulation](./boids.gif)
 
