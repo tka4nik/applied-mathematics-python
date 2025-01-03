@@ -4,15 +4,18 @@ This repository contains a collection of projects in applied mathematics impleme
 
 ## Projects
 
-1. [**Julia Set Fractal**](Fractals): Given a mapping generates a corresponding Julia fractal that you can interactively explore.
-2. [**Heat Transfer Simulation**](Heat%20Transfer): Simulate heat transfer scenarios using diffusion equations.
-3. [**Ferromagnetics Simulation**](Ferromagnetics): Calculates Mean Energy of a ferromagnetic using Ising's model.
-4. [**Boids Simulation**](Boids): Simulates behavior of a flock of "birds" by applying 3 simple rules: separation, cohesion and alignment.
-5. [**Nonlinear Dynamics Graphs**](Nonlinear%20Systems%20Exploration):
+1. [**Julia Set Fractal**](https://github.com/tka4nik/Fractals): Given a mapping generates a corresponding Julia fractal that you can interactively explore.
+2. [**Heat Transfer Simulation**](https://github.com/tka4nik/Heat-Transfer): Simulate heat transfer scenarios using diffusion equations.
+3. [**Ferromagnetics Simulation**](https://github.com/tka4nik/Ferromagnetics): Calculates Mean Energy of a ferromagnetic using Ising's model.
+4. [**Boids Simulation**](https://github.com/tka4nik/Boids): Simulates behavior of a flock of "birds" by applying 3 simple rules: separation, cohesion and alignment.
+5. [**Nonlinear Dynamics Graphs**](https://github.com/tka4nik/Nonlinear-Systems):
    - Bifurcation Diagrams: Visualizes the behavior of nonlinear systems as parameters change.
    - Mapping Diagrams: Mappps the evolution of a given discrete dynamic system. 
    - Lyapunov Exponent Graphs: Analyze the stability of chaotic systems.
-6. [**Numerical Methods**](Numerical%20Methods): Implementaion of various numerical methods to solve different problems in mathematics.
+6. [**Numerical Methods**](https://github.com/tka4nik/Numerical-Methods): Implementaion of various numerical methods to solve different problems in mathematics.
+7. Draft projects:
+   - [**Shaders**](Shaders) 
+   - [**Waves**](Waves)
 
 ## About the Author
 
@@ -26,26 +29,21 @@ This project is the work of **Nikita Tkachenko**, a student at **Higher School o
 - Each projects' requirements are listed in corresponding `requirenemets.txt` files.
 
 ### Steps
-1. Clone the repository:
+1. Clone the chosen project's repository:
     ```bash
-    git clone https://github.com/tka4nik/Applied_Mathematics_Python.git
-    cd applied-mathematics-python
+    git clone https://github.com/tka4nik/Fractals.git
+    cd Fractals
     ```
 
-2. Create a virtual environment (optional but recommended):
+3. Create a virtual environment (optional but recommended):
     ```bash
     python -m venv venv
     source venv/bin/activate   # On Windows, use `venv\Scripts\activate`
     ```
 
-3. Install dependencies:
+4. Install dependencies:
     ```bash
     pip install -r <choosen_project_ditectory>/requirements.txt
-    ```
-
-4. Launch Jupyter Notebook:
-    ```bash
-    jupyter notebook
     ```
     
 ## License
