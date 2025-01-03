@@ -1,0 +1,18 @@
+[submodule "Fractals"]
+	path = Fractals
+	url = https://github.com/tka4nik/Fractals.git
+[submodule "Ferromagnetics"]
+	path = Ferromagnetics
+	url = https://github.com/tka4nik/Ferromagnetics.git
+[submodule "Heat-Transfer"]
+	path = Heat-Transfer
+	url = https://github.com/tka4nik/Heat-Transfer.git
+[submodule "Boids"]
+	path = Boids
+	url = https://github.com/tka4nik/Boids.git
+[submodule "Nonlinear-Systems"]
+	path = Nonlinear-Systems
+	url = https://github.com/tka4nik/Nonlinear-Systems
+[submodule "Numerical-Methods"]
+	path = Numerical-Methods
+	url = https://github.com/tka4nik/Numerical-Methods
