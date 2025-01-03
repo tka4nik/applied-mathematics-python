@@ -1,1 +1,0 @@
-Оформленный отчет и приложенный код лежит в Github репозитории: https://github.com/tka4nik/Applied_Mathematics_Python/tree/main/Numerical%20Methods/Task4
